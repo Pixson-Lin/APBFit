@@ -13,11 +13,6 @@ import androidx.compose.ui.unit.dp
 import com.pixson.apbfit.R
 
 @Composable
-fun ActiveRunScreen() {
-    PlaceholderScreen(title = stringResource(R.string.nav_active_run))
-}
-
-@Composable
 fun HistoryScreen() {
     PlaceholderScreen(title = stringResource(R.string.nav_history))
 }

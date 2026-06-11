@@ -21,6 +21,12 @@ interface RunDao {
     @Query("SELECT * FROM runs WHERE id = :id")
     suspend fun getById(id: String): RunEntity?
 
+    @Query("SELECT * FROM runs WHERE status = 'RUNNING' LIMIT 1")
+    suspend fun getActiveRun(): RunEntity?
+
+    @Query("SELECT * FROM runs WHERE status = 'RUNNING' LIMIT 1")
+    fun observeActiveRun(): Flow<RunEntity?>
+
     @Query("DELETE FROM runs WHERE startTime < :cutoff")
     suspend fun deleteOlderThan(cutoff: Long): Int
 

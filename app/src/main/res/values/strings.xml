@@ -18,7 +18,24 @@
     <string name="account_active">%1$s (active)</string>
     <string name="add_google_account">Add Google account</string>
 
+    <string name="active_run_intensity">Intensity: %1$s</string>
+    <string name="active_run_elapsed">Elapsed: %1$s</string>
+    <string name="active_run_remaining">Remaining: %1$s</string>
+    <string name="active_run_steps">Steps written: %1$d</string>
+    <string name="active_run_segments">Segments written: %1$d</string>
+    <string name="active_run_status">Status: %1$s</string>
+    <string name="active_run_stop">Stop</string>
+
+    <string name="notification_channel_name">APBFit runs</string>
+    <string name="notification_channel_description">Shows progress while a run is active</string>
+    <string name="notification_run_title">APBFit Running</string>
+    <string name="notification_steps_written">%1$d steps written</string>
+    <string name="notification_remaining">%1$s remaining</string>
+    <string name="notification_stop">Stop</string>
+
     <string name="debug_panel_title">Developer tools</string>
+    <string name="debug_start_run">Start debug run (5 min)</string>
+    <string name="debug_start_run_force_fail">Start run (fail next write)</string>
     <string name="debug_ensure_datasources">Ensure DataSources</string>
     <string name="debug_write_test_batch">Write test batch</string>
     <string name="debug_test_injected_failure">Test injected failure</string>

@@ -95,6 +95,8 @@ class AccountRepository @Inject constructor(
 
     fun getActiveAccountId(): String? = _activeAccount.value?.id
 
+    fun getAccountById(accountId: String): GoogleSignInAccount? = accountCache[accountId]
+
     fun hasFitnessPermissions(account: GoogleSignInAccount = requireActiveAccount()): Boolean =
         GoogleSignIn.hasPermissions(account, fitnessOptions)
 

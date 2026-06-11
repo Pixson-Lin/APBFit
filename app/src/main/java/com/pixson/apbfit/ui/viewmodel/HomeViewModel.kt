@@ -3,10 +3,13 @@ package com.pixson.apbfit.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixson.apbfit.data.model.IntensityLevel
+import com.pixson.apbfit.data.model.RunConfig
 import com.pixson.apbfit.data.repository.AccountRepository
+import com.pixson.apbfit.data.repository.RunRepository
 import com.pixson.apbfit.domain.fit.FailingFitWriter
 import com.pixson.apbfit.domain.fit.FitWriter
 import com.pixson.apbfit.domain.fit.SegmentGenerator
+import com.pixson.apbfit.service.RunServiceStarter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,6 +37,8 @@ data class AccountSummary(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
+    private val runRepository: RunRepository,
+    private val runServiceStarter: RunServiceStarter,
     private val fitWriter: FitWriter,
     private val segmentGenerator: SegmentGenerator,
 ) : ViewModel() {
@@ -119,6 +124,29 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun startDebugRun(forceFailNextWrite: Boolean = false) {
+        viewModelScope.launch {
+            isBusy.value = true
+            runCatching {
+                val account = accountRepository.requireActiveAccount()
+                val runId = runRepository.startRun(
+                    RunConfig(
+                        accountId = account.id!!,
+                        durationMinutes = DEBUG_RUN_DURATION_MINUTES,
+                        intensityLevel = IntensityLevel.BRISK_WALK,
+                        batchSize = 1,
+                    ),
+                )
+                runServiceStarter.startRun(runId, forceFailNextWrite)
+            }.onSuccess {
+                statusMessage.value = "Debug run started."
+            }.onFailure {
+                statusMessage.value = it.message ?: "Failed to start run."
+            }
+            isBusy.value = false
+        }
+    }
+
     fun testInjectedFailure() {
         viewModelScope.launch {
             isBusy.value = true
@@ -138,5 +166,9 @@ class HomeViewModel @Inject constructor(
             )
             isBusy.value = false
         }
+    }
+
+    companion object {
+        private const val DEBUG_RUN_DURATION_MINUTES = 5
     }
 }

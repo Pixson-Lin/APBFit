@@ -4,8 +4,10 @@ import com.pixson.apbfit.data.db.dao.RunDao
 import com.pixson.apbfit.data.db.dao.SegmentRecordDao
 import com.pixson.apbfit.data.db.entity.RunEntity
 import com.pixson.apbfit.data.db.entity.SegmentRecordEntity
+import com.pixson.apbfit.data.model.RunConfig
 import com.pixson.apbfit.data.model.RunStatus
 import com.pixson.apbfit.data.model.ValidationResult
+import java.util.UUID
 import com.pixson.apbfit.di.IoDispatcher
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +25,37 @@ class RunRepository @Inject constructor(
 
     fun observeSegments(runId: String): Flow<List<SegmentRecordEntity>> =
         segmentRecordDao.observeSegments(runId)
+
+    fun observeActiveRun(): Flow<RunEntity?> = runDao.observeActiveRun()
+
+    suspend fun getActiveRun(): RunEntity? = withContext(ioDispatcher) {
+        runDao.getActiveRun()
+    }
+
+    suspend fun startRun(config: RunConfig): String = withContext(ioDispatcher) {
+        val existing = runDao.getActiveRun()
+        check(existing == null) { "A run is already active." }
+        val runId = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        runDao.insert(
+            RunEntity(
+                id = runId,
+                accountId = config.accountId,
+                startTime = now,
+                endTime = null,
+                durationMinutes = config.durationMinutes,
+                intensityLevel = config.intensityLevel.name,
+                batchSize = config.batchSize,
+                status = RunStatus.RUNNING.name,
+                totalStepsWritten = 0,
+                validationResult = null,
+                validationStepCount = null,
+                validationTime = null,
+                errorMessage = null,
+            ),
+        )
+        runId
+    }
 
     suspend fun insertRun(run: RunEntity) = withContext(ioDispatcher) {
         runDao.insert(run)

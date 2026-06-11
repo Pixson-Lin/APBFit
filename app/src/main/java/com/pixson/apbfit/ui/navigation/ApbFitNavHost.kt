@@ -23,9 +23,14 @@ fun ApbFitNavHost(
     rootViewModel: RootViewModel = hiltViewModel(),
 ) {
     val activeAccount by rootViewModel.accountRepository.activeAccount.collectAsStateWithLifecycle()
+    val runState by rootViewModel.runStateHolder.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(activeAccount) {
-        val destination = if (activeAccount == null) Routes.SIGN_IN else Routes.HOME
+    LaunchedEffect(activeAccount, runState.isActive) {
+        val destination = when {
+            activeAccount == null -> Routes.SIGN_IN
+            runState.isActive -> Routes.ACTIVE_RUN
+            else -> Routes.HOME
+        }
         if (navController.currentDestination?.route != destination) {
             navController.navigate(destination) {
                 popUpTo(0) { inclusive = true }

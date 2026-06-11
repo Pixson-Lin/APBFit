@@ -88,6 +88,20 @@ fun HomeScreen(
                 modifier = Modifier.padding(top = 16.dp),
             )
             Button(
+                onClick = { viewModel.startDebugRun() },
+                enabled = !uiState.isBusy,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.debug_start_run))
+            }
+            OutlinedButton(
+                onClick = { viewModel.startDebugRun(forceFailNextWrite = true) },
+                enabled = !uiState.isBusy,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.debug_start_run_force_fail))
+            }
+            Button(
                 onClick = viewModel::ensureDataSources,
                 enabled = !uiState.isBusy,
                 modifier = Modifier.fillMaxWidth(),
