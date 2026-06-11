@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">APBFit</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_sign_in">Sign In</string>
+    <string name="nav_active_run">Active Run</string>
+    <string name="nav_history">History</string>
+    <string name="nav_settings">Settings</string>
+    <string name="placeholder_sprint1">Sprint 1 — navigation scaffold</string>
+</resources>
