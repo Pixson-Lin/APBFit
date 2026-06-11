@@ -13,16 +13,6 @@ import androidx.compose.ui.unit.dp
 import com.pixson.apbfit.R
 
 @Composable
-fun SignInScreen() {
-    PlaceholderScreen(title = stringResource(R.string.nav_sign_in))
-}
-
-@Composable
-fun HomeScreen() {
-    PlaceholderScreen(title = stringResource(R.string.nav_home))
-}
-
-@Composable
 fun ActiveRunScreen() {
     PlaceholderScreen(title = stringResource(R.string.nav_active_run))
 }
@@ -46,7 +36,7 @@ private fun PlaceholderScreen(title: String) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = "$title\n${stringResource(R.string.placeholder_sprint1)}",
+            text = title,
             style = MaterialTheme.typography.titleMedium,
         )
     }
