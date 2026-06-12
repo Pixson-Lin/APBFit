@@ -45,9 +45,18 @@ fun ApbFitNavHost(
         modifier = modifier,
     ) {
         composable(Routes.SIGN_IN) { SignInScreen() }
-        composable(Routes.HOME) { HomeScreen() }
+        composable(Routes.HOME) {
+            HomeScreen(
+                onNavigateToHistory = { navController.navigate(Routes.HISTORY) },
+                onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+            )
+        }
         composable(Routes.ACTIVE_RUN) { ActiveRunScreen() }
-        composable(Routes.HISTORY) { HistoryScreen() }
-        composable(Routes.SETTINGS) { SettingsScreen() }
+        composable(Routes.HISTORY) {
+            HistoryScreen(onNavigateBack = { navController.popBackStack() })
+        }
+        composable(Routes.SETTINGS) {
+            SettingsScreen(onNavigateBack = { navController.popBackStack() })
+        }
     }
 }

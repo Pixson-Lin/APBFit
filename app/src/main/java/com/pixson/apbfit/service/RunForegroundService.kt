@@ -106,8 +106,7 @@ class RunForegroundService : LifecycleService() {
             if (nextSegmentStart >= runEndMillis) break
 
             val durationSec = segmentGenerator.nextDurationSeconds()
-            delay(durationSec * 1_000L)
-            if (manualStopRequested) break
+            if (delayUntilStopOrElapsed(durationSec * 1_000L)) break
 
             if (nextSegmentStart >= runEndMillis) break
 
@@ -247,6 +246,20 @@ class RunForegroundService : LifecycleService() {
         }
     }
 
+    /**
+     * Sleeps in short chunks so [manualStopRequested] is observed within ~[STOP_POLL_INTERVAL_MS].
+     * @return true if stop was requested before the full duration elapsed.
+     */
+    private suspend fun delayUntilStopOrElapsed(totalMillis: Long): Boolean {
+        var remaining = totalMillis
+        while (remaining > 0 && !manualStopRequested) {
+            val chunk = minOf(remaining, STOP_POLL_INTERVAL_MS)
+            delay(chunk)
+            remaining -= chunk
+        }
+        return manualStopRequested
+    }
+
     private fun updateRunningState(
         runId: String,
         intensityName: String,
@@ -278,5 +291,6 @@ class RunForegroundService : LifecycleService() {
         const val ACTION_STOP = "com.pixson.apbfit.action.STOP_RUN"
         const val EXTRA_RUN_ID = "extra_run_id"
         const val EXTRA_FORCE_FAIL_NEXT_WRITE = "extra_force_fail_next_write"
+        private const val STOP_POLL_INTERVAL_MS = 500L
     }
 }

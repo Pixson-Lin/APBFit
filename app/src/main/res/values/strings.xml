@@ -6,17 +6,37 @@
     <string name="nav_active_run">Active Run</string>
     <string name="nav_history">History</string>
     <string name="nav_settings">Settings</string>
+    <string name="nav_back">Back</string>
 
     <string name="sign_in_title">Sign in to APBFit</string>
     <string name="sign_in_subtitle">Connect a Google account with Google Fit access to get started.</string>
     <string name="sign_in_with_google">Sign in with Google</string>
 
     <string name="active_account_label">Active account: %1$s</string>
-    <string name="fitness_permissions_label">Google Fit permissions: %1$s</string>
-    <string name="check_pass">OK</string>
-    <string name="check_warn">Required</string>
+    <string name="account_section_title">Account</string>
     <string name="account_active">%1$s (active)</string>
     <string name="add_google_account">Add Google account</string>
+
+    <string name="environment_section_title">Environment check</string>
+    <string name="environment_all_pass">All checks passed.</string>
+    <string name="environment_warnings">Some checks need attention. You can still start a run.</string>
+    <string name="check_pass">OK</string>
+    <string name="check_warn">Action needed</string>
+    <string name="check_battery_optimization">Battery optimization</string>
+    <string name="check_google_fit_installed">Google Fit installed</string>
+    <string name="check_fitness_permissions">Google Fit permissions</string>
+    <string name="check_notifications">Notifications</string>
+    <string name="check_fix">Fix</string>
+
+    <string name="run_config_section_title">Run configuration</string>
+    <string name="intensity_label">Intensity</string>
+    <string name="intensity_metrics">%1$d SPM · %2$.2f m stride</string>
+    <string name="duration_label">Duration: %1$s</string>
+    <string name="duration_hours_minutes">%1$dh %2$dm</string>
+    <string name="duration_minutes_only">%1$d min</string>
+    <string name="batch_size_label">Batch size</string>
+    <string name="batch_size_segments">%1$d segments</string>
+    <string name="start_run">Start run</string>
 
     <string name="active_run_intensity">Intensity: %1$s</string>
     <string name="active_run_elapsed">Elapsed: %1$s</string>
@@ -25,6 +45,7 @@
     <string name="active_run_segments">Segments written: %1$d</string>
     <string name="active_run_status">Status: %1$s</string>
     <string name="active_run_stop">Stop</string>
+    <string name="active_run_finished">Run finished with status: %1$s</string>
 
     <string name="notification_channel_name">APBFit runs</string>
     <string name="notification_channel_description">Shows progress while a run is active</string>

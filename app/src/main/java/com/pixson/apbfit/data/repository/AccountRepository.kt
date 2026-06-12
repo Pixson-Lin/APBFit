@@ -34,6 +34,9 @@ class AccountRepository @Inject constructor(
         .addDataType(DataType.TYPE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_WRITE)
         .addDataType(DataType.TYPE_DISTANCE_DELTA, FitnessOptions.ACCESS_WRITE)
         .addDataType(DataType.TYPE_ACTIVITY_SEGMENT, FitnessOptions.ACCESS_WRITE)
+        // DIAGNOSTIC - TODO: remove before release (readData requires READ OAuth scopes)
+        .addDataType(DataType.TYPE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_READ)
+        .addDataType(DataType.TYPE_ACTIVITY_SEGMENT, FitnessOptions.ACCESS_READ)
         .build()
 
     private val googleSignInClient: GoogleSignInClient by lazy {
@@ -51,6 +54,9 @@ class AccountRepository @Inject constructor(
     }
 
     fun getSignInIntent(): Intent = googleSignInClient.signInIntent
+
+    /** Re-runs Google Sign-In to grant any missing Fitness OAuth scopes (e.g. READ). */
+    fun getFitnessPermissionsIntent(): Intent = googleSignInClient.signInIntent
 
     suspend fun handleSignInResult(data: Intent?): Result<GoogleSignInAccount> = mutex.withLock {
         runCatching {
@@ -99,6 +105,22 @@ class AccountRepository @Inject constructor(
 
     fun hasFitnessPermissions(account: GoogleSignInAccount = requireActiveAccount()): Boolean =
         GoogleSignIn.hasPermissions(account, fitnessOptions)
+
+    suspend fun handleFitnessPermissionResult(data: Intent?): Result<GoogleSignInAccount> {
+        val accountResult = handleSignInResult(data)
+        return accountResult.fold(
+            onSuccess = { account ->
+                if (hasFitnessPermissions(account)) {
+                    Result.success(account)
+                } else {
+                    Result.failure(
+                        IllegalStateException("Google Fit permissions were not fully granted."),
+                    )
+                }
+            },
+            onFailure = { Result.failure(it) },
+        )
+    }
 
     fun requireActiveAccount(): GoogleSignInAccount =
         _activeAccount.value ?: error("No active account")

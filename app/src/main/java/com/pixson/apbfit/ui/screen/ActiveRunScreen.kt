@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,23 +32,37 @@ fun ActiveRunScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
             text = stringResource(R.string.nav_active_run),
             style = MaterialTheme.typography.headlineSmall,
         )
-        Text(text = stringResource(R.string.active_run_intensity, state.intensityName))
-        Text(text = stringResource(R.string.active_run_elapsed, formatDuration(state.elapsedMillis)))
-        Text(text = stringResource(R.string.active_run_remaining, formatDuration(state.remainingMillis)))
-        Text(text = stringResource(R.string.active_run_steps, state.totalSteps))
-        Text(text = stringResource(R.string.active_run_segments, state.segmentsWritten))
-        Text(text = stringResource(R.string.active_run_status, state.status.name))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(text = stringResource(R.string.active_run_intensity, state.intensityName))
+                Text(text = stringResource(R.string.active_run_elapsed, formatDuration(state.elapsedMillis)))
+                Text(text = stringResource(R.string.active_run_remaining, formatDuration(state.remainingMillis)))
+                Text(text = stringResource(R.string.active_run_steps, state.totalSteps))
+                Text(text = stringResource(R.string.active_run_segments, state.segmentsWritten))
+                Text(text = stringResource(R.string.active_run_status, state.status.name))
+            }
+        }
 
         state.errorMessage?.let { message ->
             Text(
                 text = message,
                 color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
             )
         }
 
@@ -57,6 +73,12 @@ fun ActiveRunScreen(
             ) {
                 Text(stringResource(R.string.active_run_stop))
             }
+        } else if (state.runId != null) {
+            Text(
+                text = stringResource(R.string.active_run_finished, state.status.name),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

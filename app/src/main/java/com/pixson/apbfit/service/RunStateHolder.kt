@@ -31,6 +31,8 @@ class RunStateHolder @Inject constructor() {
             runId = runId,
             status = RunStatus.RUNNING,
             intensityName = intensityName,
+            startTimeMillis = startTimeMillis,
+            durationMinutes = durationMinutes,
             elapsedMillis = elapsed,
             remainingMillis = remaining,
             totalSteps = totalSteps,

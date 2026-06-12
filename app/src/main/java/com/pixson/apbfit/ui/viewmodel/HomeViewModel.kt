@@ -1,11 +1,14 @@
 package com.pixson.apbfit.ui.viewmodel
 
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixson.apbfit.data.model.IntensityLevel
 import com.pixson.apbfit.data.model.RunConfig
 import com.pixson.apbfit.data.repository.AccountRepository
 import com.pixson.apbfit.data.repository.RunRepository
+import com.pixson.apbfit.domain.EnvironmentCheck
+import com.pixson.apbfit.domain.EnvironmentChecker
 import com.pixson.apbfit.domain.fit.FailingFitWriter
 import com.pixson.apbfit.domain.fit.FitWriter
 import com.pixson.apbfit.domain.fit.SegmentGenerator
@@ -18,14 +21,19 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 data class HomeUiState(
     val activeAccountEmail: String? = null,
     val activeAccountId: String? = null,
     val knownAccounts: List<AccountSummary> = emptyList(),
-    val hasFitnessPermissions: Boolean = false,
+    val environmentChecks: List<EnvironmentCheck> = emptyList(),
+    val selectedIntensity: IntensityLevel = IntensityLevel.BRISK_WALK,
+    val durationMinutes: Int = HomeViewModel.DEFAULT_DURATION_MINUTES,
+    val batchSize: Int = HomeViewModel.DEFAULT_BATCH_SIZE,
     val statusMessage: String? = null,
     val isBusy: Boolean = false,
+    val canStartRun: Boolean = false,
 )
 
 data class AccountSummary(
@@ -41,15 +49,30 @@ class HomeViewModel @Inject constructor(
     private val runServiceStarter: RunServiceStarter,
     private val fitWriter: FitWriter,
     private val segmentGenerator: SegmentGenerator,
+    private val environmentChecker: EnvironmentChecker,
 ) : ViewModel() {
     private val statusMessage = MutableStateFlow<String?>(null)
     private val isBusy = MutableStateFlow(false)
+    private val selectedIntensity = MutableStateFlow(IntensityLevel.BRISK_WALK)
+    private val durationMinutes = MutableStateFlow(DEFAULT_DURATION_MINUTES)
+    private val batchSize = MutableStateFlow(DEFAULT_BATCH_SIZE)
+    private val environmentChecks = MutableStateFlow<List<EnvironmentCheck>>(emptyList())
 
     val uiState: StateFlow<HomeUiState> = combine(
-        accountRepository.activeAccount,
-        statusMessage,
-        isBusy,
-    ) { active, status, busy ->
+        combine(
+            accountRepository.activeAccount,
+            statusMessage,
+            isBusy,
+        ) { active, status, busy -> Triple(active, status, busy) },
+        combine(
+            selectedIntensity,
+            durationMinutes,
+            batchSize,
+            environmentChecks,
+        ) { intensity, duration, batch, checks ->
+            ConfigSnapshot(intensity, duration, batch, checks)
+        },
+    ) { (active, status, busy), config ->
         val known = accountRepository.getKnownAccounts().map { account ->
             AccountSummary(
                 id = account.id.orEmpty(),
@@ -61,28 +84,112 @@ class HomeViewModel @Inject constructor(
             activeAccountEmail = active?.email,
             activeAccountId = active?.id,
             knownAccounts = known,
-            hasFitnessPermissions = active?.let { accountRepository.hasFitnessPermissions(it) } ?: false,
+            environmentChecks = config.checks,
+            selectedIntensity = config.intensity,
+            durationMinutes = config.duration,
+            batchSize = config.batch,
             statusMessage = status,
             isBusy = busy,
+            canStartRun = active != null && !busy,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
+
+    init {
+        refreshEnvironmentChecks()
+    }
+
+    fun refreshEnvironmentChecks() {
+        val account = accountRepository.activeAccount.value // StateFlow snapshot for checks
+        environmentChecks.value = environmentChecker.evaluate(
+            account = account,
+            fitnessOptions = accountRepository.fitnessOptions,
+        )
+    }
+
+    fun setIntensity(level: IntensityLevel) {
+        selectedIntensity.value = level
+    }
+
+    fun setDurationMinutes(minutes: Int) {
+        durationMinutes.value = minutes.coerceIn(MIN_DURATION_MINUTES, MAX_DURATION_MINUTES)
+    }
+
+    fun snapDurationFromSlider(value: Float) {
+        val snapped = ((value / DURATION_STEP_MINUTES).roundToInt() * DURATION_STEP_MINUTES)
+            .coerceIn(MIN_DURATION_MINUTES, MAX_DURATION_MINUTES)
+        durationMinutes.value = snapped
+    }
+
+    fun setBatchSize(size: Int) {
+        batchSize.value = size.coerceIn(MIN_BATCH_SIZE, MAX_BATCH_SIZE)
+    }
 
     fun switchAccount(accountId: String) {
         viewModelScope.launch {
             val result = accountRepository.switchAccount(accountId)
             statusMessage.value = result.exceptionOrNull()?.message ?: "Switched account."
+            refreshEnvironmentChecks()
         }
     }
 
-    fun addAccountIntent(): android.content.Intent = accountRepository.getSignInIntent()
+    fun addAccountIntent(): Intent = accountRepository.getSignInIntent()
 
-    fun onAddAccountResult(data: android.content.Intent?) {
+    fun onAddAccountResult(data: Intent?) {
         viewModelScope.launch {
             val result = accountRepository.handleSignInResult(data)
             statusMessage.value = result.fold(
                 onSuccess = { "Added ${it.email}" },
                 onFailure = { it.message ?: "Sign-in failed." },
             )
+            refreshEnvironmentChecks()
+        }
+    }
+
+    fun startRun() {
+        viewModelScope.launch {
+            isBusy.value = true
+            runCatching {
+                val account = accountRepository.requireActiveAccount()
+                val runId = runRepository.startRun(
+                    RunConfig(
+                        accountId = account.id!!,
+                        durationMinutes = durationMinutes.value,
+                        intensityLevel = selectedIntensity.value,
+                        batchSize = batchSize.value,
+                    ),
+                )
+                runServiceStarter.startRun(runId)
+            }.onSuccess {
+                statusMessage.value = null
+            }.onFailure {
+                statusMessage.value = it.message ?: "Failed to start run."
+            }
+            isBusy.value = false
+        }
+    }
+
+    fun batteryOptimizationIntent(): Intent = environmentChecker.batteryOptimizationIntent()
+
+    fun googleFitIntent(): Intent = environmentChecker.googleFitIntent()
+
+    fun notificationSettingsIntent(): Intent = environmentChecker.notificationSettingsIntent()
+
+    fun getFitnessPermissionsIntent(): Intent = accountRepository.getFitnessPermissionsIntent()
+
+    fun onFitnessPermissionResult(data: Intent?) {
+        viewModelScope.launch {
+            val result = accountRepository.handleFitnessPermissionResult(data)
+            statusMessage.value = result.fold(
+                onSuccess = { "Google Fit permissions updated." },
+                onFailure = {
+                    when {
+                        it is IllegalStateException ->
+                            "Google Fit permissions incomplete. Select your account again and allow all requested access."
+                        else -> it.message ?: "Google Fit permission request was cancelled."
+                    }
+                },
+            )
+            refreshEnvironmentChecks()
         }
     }
 
@@ -168,7 +275,21 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    private data class ConfigSnapshot(
+        val intensity: IntensityLevel,
+        val duration: Int,
+        val batch: Int,
+        val checks: List<EnvironmentCheck>,
+    )
+
     companion object {
+        const val MIN_DURATION_MINUTES = 5
+        const val MAX_DURATION_MINUTES = 360
+        const val DURATION_STEP_MINUTES = 5
+        const val DEFAULT_DURATION_MINUTES = 30
+        const val MIN_BATCH_SIZE = 1
+        const val MAX_BATCH_SIZE = 10
+        const val DEFAULT_BATCH_SIZE = 3
         private const val DEBUG_RUN_DURATION_MINUTES = 5
     }
 }
