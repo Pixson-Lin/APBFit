@@ -1,5 +1,6 @@
 package com.pixson.apbfit.service
 
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
@@ -7,6 +8,7 @@ import android.util.Log
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.pixson.apbfit.R
 import com.pixson.apbfit.data.db.entity.SegmentRecordEntity
 import com.pixson.apbfit.data.model.IntensityLevel
 import com.pixson.apbfit.data.model.RunStatus
@@ -16,6 +18,7 @@ import com.pixson.apbfit.domain.fit.FitWriter
 import com.pixson.apbfit.domain.fit.SegmentData
 import com.pixson.apbfit.domain.fit.SegmentGenerator
 import dagger.hilt.android.AndroidEntryPoint
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -27,6 +30,7 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class RunForegroundService : LifecycleService() {
+    @Inject @ApplicationContext lateinit var appContext: Context
     @Inject lateinit var runRepository: RunRepository
     @Inject lateinit var accountRepository: AccountRepository
     @Inject lateinit var fitWriter: FitWriter
@@ -70,7 +74,7 @@ class RunForegroundService : LifecycleService() {
                 Log.d(TAG, "Run loop cancelled runId=$runId")
             } catch (e: Exception) {
                 Log.e(TAG, "Run loop crashed runId=$runId", e)
-                failRun(runId, e.message ?: "Unexpected service error.", 0)
+                failRun(runId, appContext.getString(R.string.error_unexpected_service), 0)
             }
         }
     }
@@ -78,9 +82,12 @@ class RunForegroundService : LifecycleService() {
     private suspend fun executeRun(runId: String) {
         Log.d(TAG, "executeRun begin runId=$runId")
         val run = runRepository.getRunById(runId)
-            ?: return failRun(runId, "Run not found.", 0)
+            ?: return failRun(runId, appContext.getString(R.string.error_run_not_found), 0)
         val account = accountRepository.getAccountById(run.accountId)
-            ?: return failRun(runId, "Account not available.", 0)
+            ?: return failRun(runId, appContext.getString(R.string.error_account_not_available), 0)
+        if (run.durationMinutes <= 0) {
+            return failRun(runId, appContext.getString(R.string.error_zero_duration), 0)
+        }
         val intensity = IntensityLevel.valueOf(run.intensityLevel)
         val runEndMillis = run.startTime + run.durationMinutes * 60_000L
 
@@ -88,7 +95,8 @@ class RunForegroundService : LifecycleService() {
         if (ensureResult.isFailure) {
             return failRun(
                 runId,
-                ensureResult.exceptionOrNull()?.message ?: "DataSource setup failed.",
+                ensureResult.exceptionOrNull()?.message
+                    ?: appContext.getString(R.string.error_datasource_setup_failed),
                 0,
             )
         }
@@ -139,7 +147,8 @@ class RunForegroundService : LifecycleService() {
                 if (batchResult.isFailure) {
                     return failRun(
                         runId,
-                        batchResult.exceptionOrNull()?.message ?: "Write failed.",
+                        batchResult.exceptionOrNull()?.message
+                            ?: appContext.getString(R.string.error_write_failed),
                         totalStepsWritten,
                     )
                 }
@@ -167,7 +176,8 @@ class RunForegroundService : LifecycleService() {
             if (batchResult.isFailure) {
                 return failRun(
                     runId,
-                    batchResult.exceptionOrNull()?.message ?: "Write failed.",
+                    batchResult.exceptionOrNull()?.message
+                        ?: appContext.getString(R.string.error_write_failed),
                     totalStepsWritten,
                 )
             }
@@ -189,7 +199,7 @@ class RunForegroundService : LifecycleService() {
     ): Result<Int> {
         val writeTime = System.currentTimeMillis()
         val result = if (forceFail) {
-            Result.failure(IllegalStateException("Injected write failure"))
+            Result.failure(IllegalStateException(appContext.getString(R.string.error_injected_write_failure)))
         } else {
             fitWriter.writeSegments(account, batch)
         }

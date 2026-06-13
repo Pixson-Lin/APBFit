@@ -5,16 +5,20 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixson.apbfit.data.model.IntensityLevel
+import com.pixson.apbfit.data.model.RunAlreadyActiveException
 import com.pixson.apbfit.data.model.RunConfig
 import com.pixson.apbfit.data.repository.AccountRepository
 import com.pixson.apbfit.data.repository.RunRepository
+import com.pixson.apbfit.domain.CheckStatus
 import com.pixson.apbfit.domain.EnvironmentCheck
+import com.pixson.apbfit.domain.EnvironmentCheckId
 import com.pixson.apbfit.domain.EnvironmentChecker
 import com.pixson.apbfit.domain.fit.FailingFitWriter
 import com.pixson.apbfit.domain.fit.FitWriter
 import com.pixson.apbfit.domain.fit.SegmentGenerator
 import com.pixson.apbfit.service.RunServiceStarter
 import com.pixson.apbfit.service.RunStateHolder
+import com.pixson.apbfit.ui.util.UiStrings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,6 +40,7 @@ data class HomeUiState(
     val statusMessage: String? = null,
     val isBusy: Boolean = false,
     val canStartRun: Boolean = false,
+    val startBlockedReason: String? = null,
 )
 
 data class AccountSummary(
@@ -53,6 +58,7 @@ class HomeViewModel @Inject constructor(
     private val fitWriter: FitWriter,
     private val segmentGenerator: SegmentGenerator,
     private val environmentChecker: EnvironmentChecker,
+    private val uiStrings: UiStrings,
 ) : ViewModel() {
     private val statusMessage = MutableStateFlow<String?>(null)
     private val isBusy = MutableStateFlow(false)
@@ -83,6 +89,7 @@ class HomeViewModel @Inject constructor(
                 isActive = account.id == active?.id,
             )
         }
+        val envReady = isEnvironmentReadyForRun(config.checks)
         HomeUiState(
             activeAccountEmail = active?.email,
             activeAccountId = active?.id,
@@ -93,7 +100,12 @@ class HomeViewModel @Inject constructor(
             batchSize = config.batch,
             statusMessage = status,
             isBusy = busy,
-            canStartRun = active != null && !busy,
+            canStartRun = active != null && !busy && envReady,
+            startBlockedReason = if (active != null && !envReady) {
+                uiStrings.get(com.pixson.apbfit.R.string.start_run_blocked)
+            } else {
+                null
+            },
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
@@ -133,7 +145,7 @@ class HomeViewModel @Inject constructor(
     fun switchAccount(accountId: String) {
         viewModelScope.launch {
             val result = accountRepository.switchAccount(accountId)
-            statusMessage.value = result.exceptionOrNull()?.message ?: "Switched account."
+            statusMessage.value = result.exceptionOrNull()?.message ?: uiStrings.switchedAccount
             refreshEnvironmentChecks()
         }
     }
@@ -144,8 +156,8 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             val result = accountRepository.handleSignInResult(data)
             statusMessage.value = result.fold(
-                onSuccess = { "Added ${it.email}" },
-                onFailure = { it.message ?: "Sign-in failed." },
+                onSuccess = { uiStrings.addedAccount(it.email.orEmpty()) },
+                onFailure = { it.message ?: uiStrings.signInFailed },
             )
             refreshEnvironmentChecks()
         }
@@ -174,18 +186,22 @@ class HomeViewModel @Inject constructor(
                 Log.d(TAG, "Foreground service start requested successfully")
             }.onFailure { error ->
                 Log.e(TAG, "Start run failed: ${error.message}", error)
-                if (error.message == RUN_ALREADY_ACTIVE_MESSAGE) {
-                    val recovered = recoverStaleRunIfNeeded(showMessage = true)
-                    if (recovered) {
-                        statusMessage.value = RECOVERED_RUN_MESSAGE
-                    } else {
-                        statusMessage.value = error.message
+                when (error) {
+                    is RunAlreadyActiveException -> {
+                        val recovered = recoverStaleRunIfNeeded(showMessage = true)
+                        if (!recovered) {
+                            statusMessage.value = uiStrings.runAlreadyActive
+                        }
                     }
-                } else {
-                    createdRunId?.let { runId ->
-                        runRepository.abandonRun(runId, error.message ?: "Failed to start run.")
+                    else -> {
+                        createdRunId?.let { runId ->
+                            runRepository.abandonRun(
+                                runId,
+                                error.message ?: uiStrings.failedStartRun,
+                            )
+                        }
+                        statusMessage.value = error.message ?: uiStrings.failedStartRun
                     }
-                    statusMessage.value = error.message ?: "Failed to start run."
                 }
             }
             isBusy.value = false
@@ -196,11 +212,11 @@ class HomeViewModel @Inject constructor(
     private suspend fun recoverStaleRunIfNeeded(showMessage: Boolean): Boolean {
         val dbActive = runRepository.getActiveRun() ?: return false
         if (runStateHolder.state.value.isActive) return false
-        runRepository.recoverOrphanedRuns()
+        runRepository.recoverOrphanedRuns(uiStrings.recoveredAfterRestart)
         runStateHolder.clear()
         Log.w(TAG, "Recovered stale RUNNING run id=${dbActive.id}")
         if (showMessage) {
-            statusMessage.value = RECOVERED_RUN_MESSAGE
+            statusMessage.value = uiStrings.recoveredRun
         }
         return true
     }
@@ -217,12 +233,11 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             val result = accountRepository.handleFitnessPermissionResult(data)
             statusMessage.value = result.fold(
-                onSuccess = { "Google Fit permissions updated." },
+                onSuccess = { uiStrings.fitPermissionsUpdated },
                 onFailure = {
                     when {
-                        it is IllegalStateException ->
-                            "Google Fit permissions incomplete. Select your account again and allow all requested access."
-                        else -> it.message ?: "Google Fit permission request was cancelled."
+                        it is IllegalStateException -> uiStrings.fitPermissionsIncomplete
+                        else -> it.message ?: uiStrings.fitPermissionCancelled
                     }
                 },
             )
@@ -239,8 +254,8 @@ class HomeViewModel @Inject constructor(
                 onFailure = { Result.failure(it) },
             )
             statusMessage.value = result.fold(
-                onSuccess = { "DataSources ready (cached or created)." },
-                onFailure = { it.message ?: "DataSource setup failed." },
+                onSuccess = { uiStrings.dataSourcesReady },
+                onFailure = { it.message ?: uiStrings.dataSourceSetupFailed },
             )
             isBusy.value = false
         }
@@ -261,8 +276,8 @@ class HomeViewModel @Inject constructor(
                 onFailure = { Result.failure(it) },
             )
             statusMessage.value = result.fold(
-                onSuccess = { "Test batch written (${segment.steps} steps)." },
-                onFailure = { it.message ?: "Write failed." },
+                onSuccess = { uiStrings.testBatchWritten(segment.steps) },
+                onFailure = { it.message ?: uiStrings.writeFailed },
             )
             isBusy.value = false
         }
@@ -283,9 +298,9 @@ class HomeViewModel @Inject constructor(
                 )
                 runServiceStarter.startRun(runId, forceFailNextWrite)
             }.onSuccess {
-                statusMessage.value = "Debug run started."
+                statusMessage.value = uiStrings.debugRunStarted
             }.onFailure {
-                statusMessage.value = it.message ?: "Failed to start run."
+                statusMessage.value = it.message ?: uiStrings.failedStartRun
             }
             isBusy.value = false
         }
@@ -305,11 +320,19 @@ class HomeViewModel @Inject constructor(
                 onFailure = { Result.failure(it) },
             )
             statusMessage.value = result.fold(
-                onSuccess = { "Unexpected success." },
-                onFailure = { "Injected failure: ${it.message}" },
+                onSuccess = { uiStrings.unexpectedSuccess },
+                onFailure = { uiStrings.injectedFailure(it.message) },
             )
             isBusy.value = false
         }
+    }
+
+    private fun isEnvironmentReadyForRun(checks: List<EnvironmentCheck>): Boolean {
+        val required = setOf(
+            EnvironmentCheckId.GOOGLE_FIT_INSTALLED,
+            EnvironmentCheckId.FITNESS_PERMISSIONS,
+        )
+        return checks.filter { it.id in required }.all { it.status == CheckStatus.PASS }
     }
 
     private data class ConfigSnapshot(
@@ -321,9 +344,6 @@ class HomeViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "APBFit_Run"
-        private const val RUN_ALREADY_ACTIVE_MESSAGE = "A run is already active."
-        private const val RECOVERED_RUN_MESSAGE =
-            "Previous run was interrupted and marked STOPPED. Press Start again."
         const val MIN_DURATION_MINUTES = 5
         const val MAX_DURATION_MINUTES = 360
         const val DURATION_STEP_MINUTES = 5

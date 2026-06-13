@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixson.apbfit.data.repository.AccountRepository
+import com.pixson.apbfit.ui.util.UiStrings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +20,7 @@ data class SignInUiState(
 @HiltViewModel
 class SignInViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
+    private val uiStrings: UiStrings,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SignInUiState())
     val uiState: StateFlow<SignInUiState> = _uiState.asStateFlow()
@@ -31,7 +33,7 @@ class SignInViewModel @Inject constructor(
             val result = accountRepository.handleSignInResult(data)
             _uiState.value = SignInUiState(
                 isLoading = false,
-                errorMessage = result.exceptionOrNull()?.message,
+                errorMessage = result.exceptionOrNull()?.message ?: uiStrings.signInFailed,
             )
         }
     }

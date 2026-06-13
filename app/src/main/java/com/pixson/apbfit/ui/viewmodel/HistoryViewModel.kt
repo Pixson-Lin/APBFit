@@ -8,6 +8,7 @@ import com.pixson.apbfit.data.model.ValidationResult
 import com.pixson.apbfit.data.repository.AccountRepository
 import com.pixson.apbfit.data.repository.RunRepository
 import com.pixson.apbfit.ui.util.RunFormatting
+import com.pixson.apbfit.ui.util.UiStrings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -28,7 +29,7 @@ data class RunHistoryItem(
     val configuredDurationLabel: String,
     val actualDurationLabel: String,
     val totalStepsWritten: Int,
-    val statusLabel: String,
+    val statusName: String,
     val validationBadge: String?,
     val isExpanded: Boolean,
 )
@@ -38,7 +39,7 @@ data class SegmentHistoryItem(
     val timeRangeLabel: String,
     val steps: Int,
     val distanceMeters: Float,
-    val statusLabel: String,
+    val success: Boolean,
     val errorMessage: String?,
 )
 
@@ -60,6 +61,7 @@ data class HistoryUiState(
 class HistoryViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val runRepository: RunRepository,
+    private val uiStrings: UiStrings,
 ) : ViewModel() {
     private val expandedRunId = MutableStateFlow<String?>(null)
     private val segments = MutableStateFlow<List<SegmentRecordEntity>>(emptyList())
@@ -95,7 +97,7 @@ class HistoryViewModel @Inject constructor(
                     configuredDurationLabel = RunFormatting.formatConfiguredDuration(run.durationMinutes),
                     actualDurationLabel = RunFormatting.formatActualDuration(run.startTime, run.endTime),
                     totalStepsWritten = run.totalStepsWritten,
-                    statusLabel = run.status,
+                    statusName = run.status,
                     validationBadge = run.validationResult,
                     isExpanded = run.id == expandedId,
                 )
@@ -106,7 +108,7 @@ class HistoryViewModel @Inject constructor(
                     timeRangeLabel = "${RunFormatting.formatTime(segment.startTime)} – ${RunFormatting.formatTime(segment.endTime)}",
                     steps = segment.steps,
                     distanceMeters = segment.distanceMeters,
-                    statusLabel = if (segment.success) "SUCCESS" else "FAILED",
+                    success = segment.success,
                     errorMessage = segment.errorMessage,
                 )
             },
@@ -168,7 +170,7 @@ class HistoryViewModel @Inject constructor(
                 validationTime = System.currentTimeMillis(),
             )
             validationSheet.value = null
-            statusMessage.value = "Validation saved."
+            statusMessage.value = uiStrings.validationSaved
         }
     }
 

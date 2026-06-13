@@ -4,6 +4,7 @@ import com.pixson.apbfit.data.db.dao.RunDao
 import com.pixson.apbfit.data.db.dao.SegmentRecordDao
 import com.pixson.apbfit.data.db.entity.RunEntity
 import com.pixson.apbfit.data.db.entity.SegmentRecordEntity
+import com.pixson.apbfit.data.model.RunAlreadyActiveException
 import com.pixson.apbfit.data.model.RunConfig
 import com.pixson.apbfit.data.model.RunStatus
 import com.pixson.apbfit.data.model.ValidationResult
@@ -34,7 +35,7 @@ class RunRepository @Inject constructor(
 
     suspend fun startRun(config: RunConfig): String = withContext(ioDispatcher) {
         val existing = runDao.getActiveRun()
-        check(existing == null) { "A run is already active." }
+        if (existing != null) throw RunAlreadyActiveException()
         val runId = UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
         runDao.insert(
@@ -68,13 +69,15 @@ class RunRepository @Inject constructor(
     }
 
     /** Finalize any RUNNING row left after a process/service crash (no foreground run in memory). */
-    suspend fun recoverOrphanedRuns(): Int = withContext(ioDispatcher) {
+    suspend fun recoverOrphanedRuns(recoveryMessage: String): Int = withContext(ioDispatcher) {
         val orphan = runDao.getActiveRun() ?: return@withContext 0
+        val stepsWritten = segmentRecordDao.sumSuccessfulSteps(orphan.id)
         runDao.update(
             orphan.copy(
                 status = RunStatus.STOPPED.name,
                 endTime = System.currentTimeMillis(),
-                errorMessage = "Recovered after app restart.",
+                totalStepsWritten = stepsWritten,
+                errorMessage = recoveryMessage,
             ),
         )
         1

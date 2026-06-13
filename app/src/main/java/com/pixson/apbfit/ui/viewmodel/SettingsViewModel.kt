@@ -7,6 +7,7 @@ import com.pixson.apbfit.data.repository.AccountRepository
 import com.pixson.apbfit.data.repository.RunRepository
 import com.pixson.apbfit.domain.EnvironmentChecker
 import com.pixson.apbfit.service.RunStateHolder
+import com.pixson.apbfit.ui.util.UiStrings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -37,6 +38,7 @@ class SettingsViewModel @Inject constructor(
     private val runRepository: RunRepository,
     private val runStateHolder: RunStateHolder,
     private val environmentChecker: EnvironmentChecker,
+    private val uiStrings: UiStrings,
 ) : ViewModel() {
     private val statusMessage = MutableStateFlow<String?>(null)
     private val showClearHistoryConfirm = MutableStateFlow(false)
@@ -69,31 +71,31 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val result = accountRepository.handleSignInResult(data)
             statusMessage.value = result.fold(
-                onSuccess = { "Added ${it.email}" },
-                onFailure = { it.message ?: "Sign-in failed." },
+                onSuccess = { uiStrings.addedAccount(it.email.orEmpty()) },
+                onFailure = { it.message ?: uiStrings.signInFailed },
             )
         }
     }
 
     fun switchAccount(accountId: String) {
         if (!uiState.value.canSwitchAccount) {
-            statusMessage.value = "Cannot switch account while a run is active."
+            statusMessage.value = uiStrings.cannotSwitchDuringRun
             return
         }
         viewModelScope.launch {
             val result = accountRepository.switchAccount(accountId)
-            statusMessage.value = result.exceptionOrNull()?.message ?: "Switched account."
+            statusMessage.value = result.exceptionOrNull()?.message ?: uiStrings.switchedAccount
         }
     }
 
     fun signOutCurrentAccount() {
         if (!uiState.value.canSwitchAccount) {
-            statusMessage.value = "Cannot sign out while a run is active."
+            statusMessage.value = uiStrings.cannotSignOutDuringRun
             return
         }
         viewModelScope.launch {
             accountRepository.signOutCurrentAccount()
-            statusMessage.value = "Signed out."
+            statusMessage.value = uiStrings.signedOut
         }
     }
 
@@ -110,7 +112,7 @@ class SettingsViewModel @Inject constructor(
             val accountId = accountRepository.getActiveAccountId() ?: return@launch
             runRepository.clearForAccount(accountId)
             showClearHistoryConfirm.value = false
-            statusMessage.value = "History cleared for this account."
+            statusMessage.value = uiStrings.historyCleared
         }
     }
 

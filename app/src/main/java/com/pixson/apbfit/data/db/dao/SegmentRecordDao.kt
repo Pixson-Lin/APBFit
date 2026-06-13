@@ -16,4 +16,10 @@ interface SegmentRecordDao {
 
     @Query("SELECT * FROM segment_records WHERE runId = :runId ORDER BY segmentIndex")
     fun observeSegments(runId: String): Flow<List<SegmentRecordEntity>>
+
+    @Query(
+        "SELECT COALESCE(SUM(steps), 0) FROM segment_records " +
+            "WHERE runId = :runId AND success = 1",
+    )
+    suspend fun sumSuccessfulSteps(runId: String): Int
 }

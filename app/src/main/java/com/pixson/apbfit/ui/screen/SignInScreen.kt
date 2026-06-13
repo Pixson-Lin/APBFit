@@ -61,6 +61,12 @@ fun SignInScreen(
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(top = 16.dp),
             )
+            Text(
+                text = stringResource(R.string.sign_in_error_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+            )
         }
     }
 }

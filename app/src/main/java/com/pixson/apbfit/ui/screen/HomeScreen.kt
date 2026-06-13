@@ -31,6 +31,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -176,9 +178,21 @@ fun HomeScreen(
         Button(
             onClick = viewModel::startRun,
             enabled = uiState.canStartRun,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics {
+                    contentDescription = context.getString(R.string.content_desc_start_run)
+                },
         ) {
             Text(stringResource(R.string.start_run))
+        }
+
+        uiState.startBlockedReason?.let { reason ->
+            Text(
+                text = reason,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
         }
 
         if (BuildConfig.DEBUG) {
@@ -213,7 +227,8 @@ private fun AccountSection(
         text = stringResource(R.string.account_section_title),
         style = MaterialTheme.typography.titleMedium,
     )
-    Text(text = stringResource(R.string.active_account_label, activeAccountEmail ?: "—"))
+    val accountLabel = activeAccountEmail ?: stringResource(R.string.active_account_none)
+    Text(text = stringResource(R.string.active_account_label, accountLabel))
     knownAccounts.forEach { account ->
         OutlinedButton(
             onClick = { onSwitchAccount(account.id) },

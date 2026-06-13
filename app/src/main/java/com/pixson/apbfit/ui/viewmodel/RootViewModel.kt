@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.pixson.apbfit.data.repository.AccountRepository
 import com.pixson.apbfit.data.repository.RunRepository
 import com.pixson.apbfit.service.RunStateHolder
+import com.pixson.apbfit.ui.util.UiStrings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -15,6 +16,7 @@ class RootViewModel @Inject constructor(
     val accountRepository: AccountRepository,
     val runStateHolder: RunStateHolder,
     private val runRepository: RunRepository,
+    private val uiStrings: UiStrings,
 ) : ViewModel() {
     init {
         viewModelScope.launch {
@@ -22,7 +24,7 @@ class RootViewModel @Inject constructor(
             runRepository.deleteOlderThan(
                 System.currentTimeMillis() - RETENTION_MILLIS,
             )
-            val recovered = runRepository.recoverOrphanedRuns()
+            val recovered = runRepository.recoverOrphanedRuns(uiStrings.recoveredAfterRestart)
             if (recovered > 0) {
                 runStateHolder.clear()
                 Log.w(TAG, "Recovered $recovered orphaned RUNNING run(s) from previous session.")

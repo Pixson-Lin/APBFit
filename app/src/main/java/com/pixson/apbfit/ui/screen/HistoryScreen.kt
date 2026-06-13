@@ -31,6 +31,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixson.apbfit.R
 import com.pixson.apbfit.data.model.ValidationResult
+import com.pixson.apbfit.ui.util.runStatusLabelRes
+import com.pixson.apbfit.ui.util.segmentStatusLabelRes
 import com.pixson.apbfit.ui.viewmodel.HistoryViewModel
 import com.pixson.apbfit.ui.viewmodel.RunHistoryItem
 import com.pixson.apbfit.ui.viewmodel.ValidationSheetState
@@ -128,7 +130,12 @@ private fun RunHistoryCard(
                 ),
             )
             Text(text = stringResource(R.string.history_steps, run.totalStepsWritten))
-            Text(text = stringResource(R.string.history_status, run.statusLabel))
+            Text(
+                text = stringResource(
+                    R.string.history_status,
+                    stringResource(runStatusLabelRes(run.statusName)),
+                ),
+            )
             run.validationBadge?.let { badge ->
                 Text(
                     text = stringResource(R.string.history_validation_badge, badge),
@@ -167,6 +174,7 @@ private fun RunHistoryCard(
                         )
                     } else {
                         segments.forEach { segment ->
+                            val statusLabel = stringResource(segmentStatusLabelRes(segment.success))
                             Text(
                                 text = stringResource(
                                     R.string.history_segment_line,
@@ -174,7 +182,7 @@ private fun RunHistoryCard(
                                     segment.timeRangeLabel,
                                     segment.steps,
                                     segment.distanceMeters,
-                                    segment.statusLabel,
+                                    statusLabel,
                                 ),
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.padding(vertical = 4.dp),
