@@ -3,6 +3,7 @@ package com.pixson.apbfit.service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.util.Log
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
@@ -49,9 +50,11 @@ class RunForegroundService : LifecycleService() {
                 val runId = intent.getStringExtra(EXTRA_RUN_ID) ?: return START_NOT_STICKY
                 forceFailNextWrite = intent.getBooleanExtra(EXTRA_FORCE_FAIL_NEXT_WRITE, false)
                 manualStopRequested = false
+                Log.d(TAG, "ACTION_START runId=$runId")
                 startRunLoop(runId)
             }
             ACTION_STOP -> {
+                Log.d(TAG, "ACTION_STOP received")
                 manualStopRequested = true
             }
         }
@@ -63,13 +66,17 @@ class RunForegroundService : LifecycleService() {
         runJob = lifecycleScope.launch(Dispatchers.Default) {
             try {
                 executeRun(runId)
-            } catch (_: CancellationException) {
-                // Service stopped intentionally.
+            } catch (e: CancellationException) {
+                Log.d(TAG, "Run loop cancelled runId=$runId")
+            } catch (e: Exception) {
+                Log.e(TAG, "Run loop crashed runId=$runId", e)
+                failRun(runId, e.message ?: "Unexpected service error.", 0)
             }
         }
     }
 
     private suspend fun executeRun(runId: String) {
+        Log.d(TAG, "executeRun begin runId=$runId")
         val run = runRepository.getRunById(runId)
             ?: return failRun(runId, "Run not found.", 0)
         val account = accountRepository.getAccountById(run.accountId)
@@ -95,6 +102,7 @@ class RunForegroundService : LifecycleService() {
             totalSteps = 0,
             segmentsWritten = 0,
         )
+        Log.d(TAG, "Run promoted to foreground runId=$runId")
 
         val queue = ArrayDeque<SegmentData>()
         var nextSegmentStart = run.startTime
@@ -169,6 +177,7 @@ class RunForegroundService : LifecycleService() {
         }
 
         val finalStatus = if (manualStopRequested) RunStatus.STOPPED else RunStatus.COMPLETED
+        Log.d(TAG, "Run loop finished runId=$runId status=$finalStatus steps=$totalStepsWritten")
         finalizeRun(runId, finalStatus, totalStepsWritten, null)
     }
 
@@ -207,6 +216,7 @@ class RunForegroundService : LifecycleService() {
     }
 
     private suspend fun failRun(runId: String, message: String, totalStepsWritten: Int) {
+        Log.e(TAG, "failRun runId=$runId message=$message")
         notificationHelper.showError(message)
         finalizeRun(runId, RunStatus.FAILED, totalStepsWritten, message)
     }
@@ -225,6 +235,8 @@ class RunForegroundService : LifecycleService() {
             errorMessage = errorMessage,
         )
         runStateHolder.setFinished(status, errorMessage)
+        runStateHolder.clear()
+        Log.d(TAG, "finalizeRun runId=$runId status=$status")
         withContext(Dispatchers.Main) {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
@@ -287,6 +299,7 @@ class RunForegroundService : LifecycleService() {
     }
 
     companion object {
+        private const val TAG = "APBFit_Run"
         const val ACTION_START = "com.pixson.apbfit.action.START_RUN"
         const val ACTION_STOP = "com.pixson.apbfit.action.STOP_RUN"
         const val EXTRA_RUN_ID = "extra_run_id"

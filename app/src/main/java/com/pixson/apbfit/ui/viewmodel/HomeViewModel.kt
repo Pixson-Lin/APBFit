@@ -1,6 +1,7 @@
 package com.pixson.apbfit.ui.viewmodel
 
 import android.content.Intent
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixson.apbfit.data.model.IntensityLevel
@@ -13,6 +14,7 @@ import com.pixson.apbfit.domain.fit.FailingFitWriter
 import com.pixson.apbfit.domain.fit.FitWriter
 import com.pixson.apbfit.domain.fit.SegmentGenerator
 import com.pixson.apbfit.service.RunServiceStarter
+import com.pixson.apbfit.service.RunStateHolder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -47,6 +49,7 @@ class HomeViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val runRepository: RunRepository,
     private val runServiceStarter: RunServiceStarter,
+    private val runStateHolder: RunStateHolder,
     private val fitWriter: FitWriter,
     private val segmentGenerator: SegmentGenerator,
     private val environmentChecker: EnvironmentChecker,
@@ -96,6 +99,9 @@ class HomeViewModel @Inject constructor(
 
     init {
         refreshEnvironmentChecks()
+        viewModelScope.launch {
+            recoverStaleRunIfNeeded(showMessage = false)
+        }
     }
 
     fun refreshEnvironmentChecks() {
@@ -148,8 +154,10 @@ class HomeViewModel @Inject constructor(
     fun startRun() {
         viewModelScope.launch {
             isBusy.value = true
+            var createdRunId: String? = null
             runCatching {
                 val account = accountRepository.requireActiveAccount()
+                Log.d(TAG, "Start run requested for account=${account.email}")
                 val runId = runRepository.startRun(
                     RunConfig(
                         accountId = account.id!!,
@@ -158,14 +166,43 @@ class HomeViewModel @Inject constructor(
                         batchSize = batchSize.value,
                     ),
                 )
+                createdRunId = runId
+                Log.d(TAG, "Run row created runId=$runId, starting foreground service")
                 runServiceStarter.startRun(runId)
             }.onSuccess {
                 statusMessage.value = null
-            }.onFailure {
-                statusMessage.value = it.message ?: "Failed to start run."
+                Log.d(TAG, "Foreground service start requested successfully")
+            }.onFailure { error ->
+                Log.e(TAG, "Start run failed: ${error.message}", error)
+                if (error.message == RUN_ALREADY_ACTIVE_MESSAGE) {
+                    val recovered = recoverStaleRunIfNeeded(showMessage = true)
+                    if (recovered) {
+                        statusMessage.value = RECOVERED_RUN_MESSAGE
+                    } else {
+                        statusMessage.value = error.message
+                    }
+                } else {
+                    createdRunId?.let { runId ->
+                        runRepository.abandonRun(runId, error.message ?: "Failed to start run.")
+                    }
+                    statusMessage.value = error.message ?: "Failed to start run."
+                }
             }
             isBusy.value = false
         }
+    }
+
+    /** DB says RUNNING but no in-memory active run → service died mid-run; finalize as STOPPED. */
+    private suspend fun recoverStaleRunIfNeeded(showMessage: Boolean): Boolean {
+        val dbActive = runRepository.getActiveRun() ?: return false
+        if (runStateHolder.state.value.isActive) return false
+        runRepository.recoverOrphanedRuns()
+        runStateHolder.clear()
+        Log.w(TAG, "Recovered stale RUNNING run id=${dbActive.id}")
+        if (showMessage) {
+            statusMessage.value = RECOVERED_RUN_MESSAGE
+        }
+        return true
     }
 
     fun batteryOptimizationIntent(): Intent = environmentChecker.batteryOptimizationIntent()
@@ -283,6 +320,10 @@ class HomeViewModel @Inject constructor(
     )
 
     companion object {
+        private const val TAG = "APBFit_Run"
+        private const val RUN_ALREADY_ACTIVE_MESSAGE = "A run is already active."
+        private const val RECOVERED_RUN_MESSAGE =
+            "Previous run was interrupted and marked STOPPED. Press Start again."
         const val MIN_DURATION_MINUTES = 5
         const val MAX_DURATION_MINUTES = 360
         const val DURATION_STEP_MINUTES = 5

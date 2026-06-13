@@ -57,6 +57,29 @@ class RunRepository @Inject constructor(
         runId
     }
 
+    suspend fun abandonRun(runId: String, message: String) = withContext(ioDispatcher) {
+        finalizeRun(
+            runId = runId,
+            status = RunStatus.FAILED,
+            endTime = System.currentTimeMillis(),
+            totalStepsWritten = 0,
+            errorMessage = message,
+        )
+    }
+
+    /** Finalize any RUNNING row left after a process/service crash (no foreground run in memory). */
+    suspend fun recoverOrphanedRuns(): Int = withContext(ioDispatcher) {
+        val orphan = runDao.getActiveRun() ?: return@withContext 0
+        runDao.update(
+            orphan.copy(
+                status = RunStatus.STOPPED.name,
+                endTime = System.currentTimeMillis(),
+                errorMessage = "Recovered after app restart.",
+            ),
+        )
+        1
+    }
+
     suspend fun insertRun(run: RunEntity) = withContext(ioDispatcher) {
         runDao.insert(run)
     }

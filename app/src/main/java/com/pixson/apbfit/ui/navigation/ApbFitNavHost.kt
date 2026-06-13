@@ -31,6 +31,10 @@ fun ApbFitNavHost(
             runState.isActive -> Routes.ACTIVE_RUN
             else -> Routes.HOME
         }
+        android.util.Log.d(
+            "APBFit_Run",
+            "Nav gate: destination=$destination isActive=${runState.isActive} runId=${runState.runId} status=${runState.status}",
+        )
         if (navController.currentDestination?.route != destination) {
             navController.navigate(destination) {
                 popUpTo(0) { inclusive = true }

@@ -60,4 +60,37 @@
     <string name="debug_ensure_datasources">Ensure DataSources</string>
     <string name="debug_write_test_batch">Write test batch</string>
     <string name="debug_test_injected_failure">Test injected failure</string>
+
+    <string name="history_empty">No runs recorded for this account yet.</string>
+    <string name="history_intensity">Intensity: %1$s</string>
+    <string name="history_duration">Duration: %1$s configured · %2$s actual</string>
+    <string name="history_steps">Steps written: %1$d</string>
+    <string name="history_status">Status: %1$s</string>
+    <string name="history_validation_badge">Validation: %1$s</string>
+    <string name="history_expand">Show segments</string>
+    <string name="history_collapse">Hide segments</string>
+    <string name="history_log_result">Log result</string>
+    <string name="history_edit_result">Edit result</string>
+    <string name="history_no_segments">No segments recorded.</string>
+    <string name="history_segment_line">#%1$d %2$s · %3$d steps · %4$.2f m · %5$s</string>
+
+    <string name="validation_sheet_title">Log validation result</string>
+    <string name="validation_accepted">Accepted</string>
+    <string name="validation_rejected">Rejected</string>
+    <string name="validation_step_count_label">Step count reported (optional)</string>
+    <string name="validation_save">Save</string>
+
+    <string name="settings_account_section">Account</string>
+    <string name="settings_sign_out">Sign out current account</string>
+    <string name="settings_data_section">Data</string>
+    <string name="settings_clear_history">Clear history for this account</string>
+    <string name="settings_clear_history_title">Clear history?</string>
+    <string name="settings_clear_history_message">All runs and segments for the active account will be deleted. This cannot be undone.</string>
+    <string name="settings_clear_history_confirm">Clear</string>
+    <string name="settings_clear_history_cancel">Cancel</string>
+    <string name="settings_shortcuts_section">Shortcuts</string>
+    <string name="settings_battery_optimization">Battery optimization</string>
+    <string name="settings_app_details">App details</string>
+    <string name="settings_notifications">Notification settings</string>
+    <string name="settings_google_fit">Google Fit</string>
 </resources>
