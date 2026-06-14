@@ -1,9 +1,7 @@
 package com.pixson.apbfit.ui.screen
 
 import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Build
-import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -81,27 +79,10 @@ fun HomeScreen(
         viewModel.refreshEnvironmentChecks()
     }
 
-    // DIAGNOSTIC - TODO: remove before release
-    val activityRecognitionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) {
-        viewModel.refreshEnvironmentChecks()
-    }
-
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.refreshEnvironmentChecks()
-                // DIAGNOSTIC - TODO: remove before release
-                if (BuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    if (ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.ACTIVITY_RECOGNITION,
-                        ) != PackageManager.PERMISSION_GRANTED
-                    ) {
-                        activityRecognitionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
-                    }
-                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)

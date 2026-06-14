@@ -14,8 +14,8 @@ android {
         applicationId = "com.pixson.apbfit"
         minSdk = 31
         targetSdk = 35
-        versionCode = 26061102
-        versionName = "1.0.20260611-s6"
+        versionCode = 26061103
+        versionName = "1.0.20260611"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -26,6 +26,8 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            // v1.0 sideload: sign with debug keystore so OAuth SHA-1 matches existing Google Cloud setup.
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
