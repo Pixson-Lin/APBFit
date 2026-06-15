@@ -3,6 +3,7 @@ package com.pixson.apbfit.di
 import android.content.Context
 import androidx.room.Room
 import com.pixson.apbfit.data.db.AppDatabase
+import com.pixson.apbfit.data.db.MIGRATION_1_2
 import com.pixson.apbfit.data.db.dao.RunDao
 import com.pixson.apbfit.data.db.dao.SegmentRecordDao
 import dagger.Module
@@ -22,7 +23,7 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             DATABASE_NAME,
-        ).build()
+        ).addMigrations(MIGRATION_1_2).build()
     }
 
     @Provides

@@ -4,6 +4,7 @@ import com.pixson.apbfit.data.db.entity.RunEntity
 
 data class Run(
     val id: String,
+    val sessionId: String,
     val accountId: String,
     val startTime: Long,
     val endTime: Long?,
@@ -20,6 +21,7 @@ data class Run(
 
 fun RunEntity.toModel(): Run = Run(
     id = id,
+    sessionId = sessionId,
     accountId = accountId,
     startTime = startTime,
     endTime = endTime,
@@ -36,6 +38,7 @@ fun RunEntity.toModel(): Run = Run(
 
 fun Run.toEntity(): RunEntity = RunEntity(
     id = id,
+    sessionId = sessionId,
     accountId = accountId,
     startTime = startTime,
     endTime = endTime,

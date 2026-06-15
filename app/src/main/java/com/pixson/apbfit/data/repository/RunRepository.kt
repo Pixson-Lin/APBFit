@@ -6,6 +6,9 @@ import com.pixson.apbfit.data.db.entity.RunEntity
 import com.pixson.apbfit.data.db.entity.SegmentRecordEntity
 import com.pixson.apbfit.data.model.RunAlreadyActiveException
 import com.pixson.apbfit.data.model.RunConfig
+import com.pixson.apbfit.data.model.RunSessionConfig
+import com.pixson.apbfit.data.model.RunSessionStartResult
+import com.pixson.apbfit.data.model.RunStartEntry
 import com.pixson.apbfit.data.model.RunStatus
 import com.pixson.apbfit.data.model.ValidationResult
 import java.util.UUID
@@ -29,18 +32,29 @@ class RunRepository @Inject constructor(
 
     fun observeActiveRun(): Flow<RunEntity?> = runDao.observeActiveRun()
 
+    fun observeActiveRuns(): Flow<List<RunEntity>> = runDao.observeActiveRuns()
+
     suspend fun getActiveRun(): RunEntity? = withContext(ioDispatcher) {
         runDao.getActiveRun()
     }
 
+    suspend fun getAllActiveRuns(): List<RunEntity> = withContext(ioDispatcher) {
+        runDao.getAllActiveRuns()
+    }
+
+    suspend fun hasRunningRows(): Boolean = withContext(ioDispatcher) {
+        runDao.getAllActiveRuns().isNotEmpty()
+    }
+
     suspend fun startRun(config: RunConfig): String = withContext(ioDispatcher) {
-        val existing = runDao.getActiveRun()
-        if (existing != null) throw RunAlreadyActiveException()
+        val existing = runDao.getAllActiveRuns()
+        if (existing.isNotEmpty()) throw RunAlreadyActiveException()
         val runId = UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
         runDao.insert(
             RunEntity(
                 id = runId,
+                sessionId = runId,
                 accountId = config.accountId,
                 startTime = now,
                 endTime = null,
@@ -58,6 +72,45 @@ class RunRepository @Inject constructor(
         runId
     }
 
+    suspend fun startSession(
+        config: RunSessionConfig,
+        accountIds: List<String>,
+    ): RunSessionStartResult = withContext(ioDispatcher) {
+        require(accountIds.isNotEmpty()) { "At least one account is required to start a session." }
+        if (runDao.getAllActiveRuns().isNotEmpty()) throw RunAlreadyActiveException()
+        accountIds.forEach { accountId ->
+            if (runDao.getActiveRunForAccount(accountId) != null) {
+                throw RunAlreadyActiveException()
+            }
+        }
+
+        val sessionId = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        val entries = accountIds.map { accountId ->
+            val runId = UUID.randomUUID().toString()
+            runDao.insert(
+                RunEntity(
+                    id = runId,
+                    sessionId = sessionId,
+                    accountId = accountId,
+                    startTime = now,
+                    endTime = null,
+                    durationMinutes = config.durationMinutes,
+                    intensityLevel = config.intensityLevel.name,
+                    batchSize = config.batchSize,
+                    status = RunStatus.RUNNING.name,
+                    totalStepsWritten = 0,
+                    validationResult = null,
+                    validationStepCount = null,
+                    validationTime = null,
+                    errorMessage = null,
+                ),
+            )
+            RunStartEntry(runId = runId, accountId = accountId)
+        }
+        RunSessionStartResult(sessionId = sessionId, runs = entries)
+    }
+
     suspend fun abandonRun(runId: String, message: String) = withContext(ioDispatcher) {
         finalizeRun(
             runId = runId,
@@ -68,20 +121,28 @@ class RunRepository @Inject constructor(
         )
     }
 
-    /** Finalize any RUNNING row left after a process/service crash (no foreground run in memory). */
-    suspend fun recoverOrphanedRuns(recoveryMessage: String): Int = withContext(ioDispatcher) {
-        val orphan = runDao.getActiveRun() ?: return@withContext 0
-        val stepsWritten = segmentRecordDao.sumSuccessfulSteps(orphan.id)
-        runDao.update(
-            orphan.copy(
-                status = RunStatus.STOPPED.name,
-                endTime = System.currentTimeMillis(),
-                totalStepsWritten = stepsWritten,
-                errorMessage = recoveryMessage,
-            ),
-        )
-        1
+    /** Finalize all RUNNING rows left after a process/service crash. */
+    suspend fun recoverOrphanedSessions(recoveryMessage: String): Int = withContext(ioDispatcher) {
+        val orphans = runDao.getAllActiveRuns()
+        if (orphans.isEmpty()) return@withContext 0
+        val now = System.currentTimeMillis()
+        orphans.forEach { run ->
+            val stepsWritten = segmentRecordDao.sumSuccessfulSteps(run.id)
+            runDao.update(
+                run.copy(
+                    status = RunStatus.STOPPED.name,
+                    endTime = now,
+                    totalStepsWritten = stepsWritten,
+                    errorMessage = recoveryMessage,
+                ),
+            )
+        }
+        orphans.size
     }
+
+    /** Delegates to [recoverOrphanedSessions] for call-site compatibility during migration. */
+    suspend fun recoverOrphanedRuns(recoveryMessage: String): Int =
+        recoverOrphanedSessions(recoveryMessage)
 
     suspend fun insertRun(run: RunEntity) = withContext(ioDispatcher) {
         runDao.insert(run)
@@ -93,6 +154,10 @@ class RunRepository @Inject constructor(
 
     suspend fun getRunById(id: String): RunEntity? = withContext(ioDispatcher) {
         runDao.getById(id)
+    }
+
+    suspend fun getRunsBySessionId(sessionId: String): List<RunEntity> = withContext(ioDispatcher) {
+        runDao.getRunsBySessionId(sessionId)
     }
 
     suspend fun insertSegment(record: SegmentRecordEntity) = withContext(ioDispatcher) {

@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "runs")
 data class RunEntity(
     @PrimaryKey val id: String,
+    val sessionId: String,
     val accountId: String,
     val startTime: Long,
     val endTime: Long?,

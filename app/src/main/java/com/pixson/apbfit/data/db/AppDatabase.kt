@@ -9,7 +9,7 @@ import com.pixson.apbfit.data.db.entity.SegmentRecordEntity
 
 @Database(
     entities = [RunEntity::class, SegmentRecordEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
