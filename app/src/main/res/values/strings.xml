@@ -46,6 +46,9 @@
     <string name="active_run_status">狀態：%1$s</string>
     <string name="active_run_stop">停止</string>
     <string name="active_run_finished">Run 已結束，狀態：%1$s</string>
+    <string name="active_run_session_status">Session：%1$s</string>
+    <string name="active_run_account_line">%1$s · %2$d 步 · %3$s</string>
+    <string name="error_debug_requires_two_accounts">除錯多帳號 Run 需要至少兩個已登入帳號。</string>
 
     <string name="notification_channel_name">APBFit Run</string>
     <string name="notification_channel_description">Run 進行中時顯示進度</string>

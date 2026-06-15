@@ -32,6 +32,7 @@ class UiStrings @Inject constructor(
     val dataSourceSetupFailed: String get() = get(R.string.error_datasource_setup_failed)
     val writeFailed: String get() = get(R.string.error_write_failed)
     val debugRunStarted: String get() = get(R.string.msg_debug_run_started)
+    val debugRequiresTwoAccounts: String get() = get(R.string.error_debug_requires_two_accounts)
     val unexpectedSuccess: String get() = get(R.string.msg_unexpected_success)
     val runNotFound: String get() = get(R.string.error_run_not_found)
     val accountNotAvailable: String get() = get(R.string.error_account_not_available)

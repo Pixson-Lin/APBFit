@@ -6,7 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixson.apbfit.data.model.IntensityLevel
 import com.pixson.apbfit.data.model.RunAlreadyActiveException
-import com.pixson.apbfit.data.model.RunConfig
+import com.pixson.apbfit.data.model.RunSessionConfig
 import com.pixson.apbfit.data.repository.AccountRepository
 import com.pixson.apbfit.data.repository.RunRepository
 import com.pixson.apbfit.domain.CheckStatus
@@ -17,7 +17,7 @@ import com.pixson.apbfit.domain.fit.FailingFitWriter
 import com.pixson.apbfit.domain.fit.FitWriter
 import com.pixson.apbfit.domain.fit.SegmentGenerator
 import com.pixson.apbfit.service.RunServiceStarter
-import com.pixson.apbfit.service.RunStateHolder
+import com.pixson.apbfit.service.RunSessionStateHolder
 import com.pixson.apbfit.ui.util.UiStrings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,7 +54,7 @@ class HomeViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val runRepository: RunRepository,
     private val runServiceStarter: RunServiceStarter,
-    private val runStateHolder: RunStateHolder,
+    private val runSessionStateHolder: RunSessionStateHolder,
     private val fitWriter: FitWriter,
     private val segmentGenerator: SegmentGenerator,
     private val environmentChecker: EnvironmentChecker,
@@ -166,26 +166,26 @@ class HomeViewModel @Inject constructor(
     fun startRun() {
         viewModelScope.launch {
             isBusy.value = true
-            var createdRunId: String? = null
+            var createdSessionId: String? = null
             runCatching {
                 val account = accountRepository.requireActiveAccount()
-                Log.d(TAG, "Start run requested for account=${account.email}")
-                val runId = runRepository.startRun(
-                    RunConfig(
-                        accountId = account.id!!,
+                Log.d(TAG, "Start session requested for account=${account.email}")
+                val result = runRepository.startSession(
+                    RunSessionConfig(
                         durationMinutes = durationMinutes.value,
                         intensityLevel = selectedIntensity.value,
                         batchSize = batchSize.value,
                     ),
+                    listOf(account.id!!),
                 )
-                createdRunId = runId
-                Log.d(TAG, "Run row created runId=$runId, starting foreground service")
-                runServiceStarter.startRun(runId)
+                createdSessionId = result.sessionId
+                Log.d(TAG, "Session rows created sessionId=${result.sessionId}, starting foreground service")
+                runServiceStarter.startSession(result.sessionId)
             }.onSuccess {
                 statusMessage.value = null
                 Log.d(TAG, "Foreground service start requested successfully")
             }.onFailure { error ->
-                Log.e(TAG, "Start run failed: ${error.message}", error)
+                Log.e(TAG, "Start session failed: ${error.message}", error)
                 when (error) {
                     is RunAlreadyActiveException -> {
                         val recovered = recoverStaleRunIfNeeded(showMessage = true)
@@ -194,11 +194,13 @@ class HomeViewModel @Inject constructor(
                         }
                     }
                     else -> {
-                        createdRunId?.let { runId ->
-                            runRepository.abandonRun(
-                                runId,
-                                error.message ?: uiStrings.failedStartRun,
-                            )
+                        createdSessionId?.let { sessionId ->
+                            runRepository.getRunsBySessionId(sessionId).forEach { run ->
+                                runRepository.abandonRun(
+                                    run.id,
+                                    error.message ?: uiStrings.failedStartRun,
+                                )
+                            }
                         }
                         statusMessage.value = error.message ?: uiStrings.failedStartRun
                     }
@@ -208,13 +210,14 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** DB says RUNNING but no in-memory active run → service died mid-run; finalize as STOPPED. */
+    /** DB says RUNNING but no in-memory active session → service died mid-run; finalize as STOPPED. */
     private suspend fun recoverStaleRunIfNeeded(showMessage: Boolean): Boolean {
-        val dbActive = runRepository.getActiveRun() ?: return false
-        if (runStateHolder.state.value.isActive) return false
-        runRepository.recoverOrphanedRuns(uiStrings.recoveredAfterRestart)
-        runStateHolder.clear()
-        Log.w(TAG, "Recovered stale RUNNING run id=${dbActive.id}")
+        val dbActive = runRepository.getAllActiveRuns()
+        if (dbActive.isEmpty()) return false
+        if (runSessionStateHolder.isActive) return false
+        runRepository.recoverOrphanedSessions(uiStrings.recoveredAfterRestart)
+        runSessionStateHolder.clear()
+        Log.w(TAG, "Recovered ${dbActive.size} stale RUNNING run(s)")
         if (showMessage) {
             statusMessage.value = uiStrings.recoveredRun
         }
@@ -287,16 +290,24 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             isBusy.value = true
             runCatching {
-                val account = accountRepository.requireActiveAccount()
-                val runId = runRepository.startRun(
-                    RunConfig(
-                        accountId = account.id!!,
+                val accounts = accountRepository.getKnownAccounts().take(DEBUG_SESSION_ACCOUNT_COUNT)
+                if (accounts.size < DEBUG_SESSION_ACCOUNT_COUNT) {
+                    throw IllegalStateException(uiStrings.debugRequiresTwoAccounts)
+                }
+                val accountIds = accounts.mapNotNull { it.id }
+                if (accountIds.size < DEBUG_SESSION_ACCOUNT_COUNT) {
+                    throw IllegalStateException(uiStrings.debugRequiresTwoAccounts)
+                }
+                val result = runRepository.startSession(
+                    RunSessionConfig(
                         durationMinutes = DEBUG_RUN_DURATION_MINUTES,
                         intensityLevel = IntensityLevel.BRISK_WALK,
                         batchSize = 1,
                     ),
+                    accountIds,
                 )
-                runServiceStarter.startRun(runId, forceFailNextWrite)
+                val forceFailRunId = if (forceFailNextWrite) result.runs.first().runId else null
+                runServiceStarter.startSession(result.sessionId, forceFailRunId)
             }.onSuccess {
                 statusMessage.value = uiStrings.debugRunStarted
             }.onFailure {
@@ -352,5 +363,6 @@ class HomeViewModel @Inject constructor(
         const val MAX_BATCH_SIZE = 10
         const val DEFAULT_BATCH_SIZE = 3
         private const val DEBUG_RUN_DURATION_MINUTES = 5
+        private const val DEBUG_SESSION_ACCOUNT_COUNT = 2
     }
 }

@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.pixson.apbfit.data.repository.AccountRepository
 import com.pixson.apbfit.data.repository.RunRepository
 import com.pixson.apbfit.domain.EnvironmentChecker
-import com.pixson.apbfit.service.RunStateHolder
+import com.pixson.apbfit.service.RunSessionStateHolder
 import com.pixson.apbfit.ui.util.UiStrings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,7 +36,7 @@ data class SettingsUiState(
 class SettingsViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val runRepository: RunRepository,
-    private val runStateHolder: RunStateHolder,
+    private val runSessionStateHolder: RunSessionStateHolder,
     private val environmentChecker: EnvironmentChecker,
     private val uiStrings: UiStrings,
 ) : ViewModel() {
@@ -45,7 +45,7 @@ class SettingsViewModel @Inject constructor(
 
     val uiState: StateFlow<SettingsUiState> = combine(
         accountRepository.activeAccount,
-        runStateHolder.state.map { it.isActive },
+        runSessionStateHolder.state.map { it.session.isActive },
         statusMessage,
         showClearHistoryConfirm,
     ) { active, runActive, status, showConfirm ->

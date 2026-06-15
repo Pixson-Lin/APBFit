@@ -10,18 +10,20 @@ import javax.inject.Singleton
 class RunServiceStarter @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
-    fun startRun(runId: String, forceFailNextWrite: Boolean = false) {
+    fun startSession(sessionId: String, forceFailRunId: String? = null) {
         val intent = Intent(context, RunForegroundService::class.java).apply {
-            action = RunForegroundService.ACTION_START
-            putExtra(RunForegroundService.EXTRA_RUN_ID, runId)
-            putExtra(RunForegroundService.EXTRA_FORCE_FAIL_NEXT_WRITE, forceFailNextWrite)
+            action = RunForegroundService.ACTION_START_SESSION
+            putExtra(RunForegroundService.EXTRA_SESSION_ID, sessionId)
+            if (forceFailRunId != null) {
+                putExtra(RunForegroundService.EXTRA_FORCE_FAIL_RUN_ID, forceFailRunId)
+            }
         }
         context.startForegroundService(intent)
     }
 
-    fun stopRun() {
+    fun stopSession() {
         val intent = Intent(context, RunForegroundService::class.java).apply {
-            action = RunForegroundService.ACTION_STOP
+            action = RunForegroundService.ACTION_STOP_SESSION
         }
         context.startService(intent)
     }

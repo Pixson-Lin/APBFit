@@ -33,7 +33,9 @@ class RunNotificationHelper @Inject constructor(
         notificationManager.createNotificationChannel(channel)
     }
 
-    fun buildNotification(state: RunUiState): Notification {
+    fun buildSessionNotification(state: RunSessionUiState): Notification {
+        val session = state.session
+        val totalSteps = state.accounts.sumOf { it.totalSteps }
         val openIntent = PendingIntent.getActivity(
             context,
             0,
@@ -44,27 +46,29 @@ class RunNotificationHelper @Inject constructor(
             context,
             1,
             Intent(context, RunForegroundService::class.java).apply {
-                action = RunForegroundService.ACTION_STOP
+                action = RunForegroundService.ACTION_STOP_SESSION
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val statusLine = session.sessionStatusLabel.ifEmpty { session.intensityName }
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(context.getString(R.string.notification_run_title))
-            .setContentText(state.intensityName)
+            .setContentText(statusLine)
             .setStyle(
                 NotificationCompat.BigTextStyle().bigText(
                     buildString {
-                        appendLine(state.intensityName)
+                        appendLine(statusLine)
+                        appendLine(session.intensityName)
                         appendLine(
                             context.getString(
                                 R.string.notification_steps_written,
-                                state.totalSteps,
+                                totalSteps,
                             ),
                         )
                         append(
                             context.getString(
                                 R.string.notification_remaining,
-                                formatRemaining(state.remainingMillis),
+                                formatRemaining(session.remainingMillis),
                             ),
                         )
                     },

@@ -7,25 +7,20 @@ import android.os.Build
 import android.util.Log
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.pixson.apbfit.R
-import com.pixson.apbfit.data.db.entity.SegmentRecordEntity
 import com.pixson.apbfit.data.model.IntensityLevel
 import com.pixson.apbfit.data.model.RunStatus
 import com.pixson.apbfit.data.repository.AccountRepository
 import com.pixson.apbfit.data.repository.RunRepository
 import com.pixson.apbfit.domain.fit.FitWriter
-import com.pixson.apbfit.domain.fit.SegmentData
-import com.pixson.apbfit.domain.fit.SegmentGenerator
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -34,13 +29,12 @@ class RunForegroundService : LifecycleService() {
     @Inject lateinit var runRepository: RunRepository
     @Inject lateinit var accountRepository: AccountRepository
     @Inject lateinit var fitWriter: FitWriter
-    @Inject lateinit var segmentGenerator: SegmentGenerator
-    @Inject lateinit var runStateHolder: RunStateHolder
+    @Inject lateinit var runSessionStateHolder: RunSessionStateHolder
     @Inject lateinit var notificationHelper: RunNotificationHelper
 
-    private var runJob: Job? = null
-    private var manualStopRequested = false
-    private var forceFailNextWrite = false
+    private var coordinator: SessionCoordinator? = null
+    private val accountJobs = mutableListOf<Job>()
+    private val finalizedRuns = ConcurrentHashMap.newKeySet<String>()
 
     override fun onCreate() {
         super.onCreate()
@@ -50,193 +44,149 @@ class RunForegroundService : LifecycleService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         when (intent?.action) {
-            ACTION_START -> {
-                val runId = intent.getStringExtra(EXTRA_RUN_ID) ?: return START_NOT_STICKY
-                forceFailNextWrite = intent.getBooleanExtra(EXTRA_FORCE_FAIL_NEXT_WRITE, false)
-                manualStopRequested = false
-                Log.d(TAG, "ACTION_START runId=$runId")
-                startRunLoop(runId)
+            ACTION_START_SESSION -> {
+                val sessionId = intent.getStringExtra(EXTRA_SESSION_ID) ?: return START_NOT_STICKY
+                val forceFailRunId = intent.getStringExtra(EXTRA_FORCE_FAIL_RUN_ID)
+                Log.d(TAG, "ACTION_START_SESSION sessionId=$sessionId")
+                startSessionLoop(sessionId, forceFailRunId)
             }
-            ACTION_STOP -> {
-                Log.d(TAG, "ACTION_STOP received")
-                manualStopRequested = true
+            ACTION_STOP_SESSION, ACTION_STOP -> {
+                Log.d(TAG, "ACTION_STOP_SESSION received")
+                coordinator?.requestStop()
             }
         }
         return START_STICKY
     }
 
-    private fun startRunLoop(runId: String) {
-        runJob?.cancel()
-        runJob = lifecycleScope.launch(Dispatchers.Default) {
+    private fun startSessionLoop(sessionId: String, forceFailRunId: String?) {
+        accountJobs.forEach { it.cancel() }
+        accountJobs.clear()
+        finalizedRuns.clear()
+        coordinator = null
+
+        lifecycleScope.launch(Dispatchers.Default) {
             try {
-                executeRun(runId)
+                executeSession(sessionId, forceFailRunId)
             } catch (e: CancellationException) {
-                Log.d(TAG, "Run loop cancelled runId=$runId")
+                Log.d(TAG, "Session loop cancelled sessionId=$sessionId")
             } catch (e: Exception) {
-                Log.e(TAG, "Run loop crashed runId=$runId", e)
-                failRun(runId, appContext.getString(R.string.error_unexpected_service), 0)
+                Log.e(TAG, "Session loop crashed sessionId=$sessionId", e)
+                failSession(sessionId, appContext.getString(R.string.error_unexpected_service))
             }
         }
     }
 
-    private suspend fun executeRun(runId: String) {
-        Log.d(TAG, "executeRun begin runId=$runId")
-        val run = runRepository.getRunById(runId)
-            ?: return failRun(runId, appContext.getString(R.string.error_run_not_found), 0)
-        val account = accountRepository.getAccountById(run.accountId)
-            ?: return failRun(runId, appContext.getString(R.string.error_account_not_available), 0)
-        if (run.durationMinutes <= 0) {
-            return failRun(runId, appContext.getString(R.string.error_zero_duration), 0)
+    private suspend fun executeSession(sessionId: String, forceFailRunId: String?) {
+        val runs = runRepository.getRunsBySessionId(sessionId)
+        if (runs.isEmpty()) {
+            Log.e(TAG, "No runs found for sessionId=$sessionId")
+            return
         }
-        val intensity = IntensityLevel.valueOf(run.intensityLevel)
-        val runEndMillis = run.startTime + run.durationMinutes * 60_000L
-
-        val ensureResult = fitWriter.ensureDataSources(account)
-        if (ensureResult.isFailure) {
-            return failRun(
-                runId,
-                ensureResult.exceptionOrNull()?.message
-                    ?: appContext.getString(R.string.error_datasource_setup_failed),
-                0,
-            )
-        }
-
-        promoteForeground(intensity.displayName)
-        runStateHolder.setRunning(
-            runId = runId,
-            intensityName = intensity.displayName,
-            startTimeMillis = run.startTime,
-            durationMinutes = run.durationMinutes,
-            totalSteps = 0,
-            segmentsWritten = 0,
+        val first = runs.first()
+        val intensity = IntensityLevel.valueOf(first.intensityLevel)
+        val sessionEndMillis = first.startTime + first.durationMinutes * 60_000L
+        val sessionCoordinator = SessionCoordinator(
+            sessionId = sessionId,
+            startTimeMillis = first.startTime,
+            sessionEndMillis = sessionEndMillis,
+            intensity = intensity,
+            batchSize = first.batchSize,
         )
-        Log.d(TAG, "Run promoted to foreground runId=$runId")
+        coordinator = sessionCoordinator
 
-        val queue = ArrayDeque<SegmentData>()
-        var nextSegmentStart = run.startTime
-        var segmentIndex = 0
-        var totalStepsWritten = 0
-        var segmentsWritten = 0
-
-        while (!manualStopRequested) {
-            if (nextSegmentStart >= runEndMillis) break
-
-            val durationSec = segmentGenerator.nextDurationSeconds()
-            if (delayUntilStopOrElapsed(durationSec * 1_000L)) break
-
-            if (nextSegmentStart >= runEndMillis) break
-
-            val segment = segmentGenerator.generate(
-                index = segmentIndex,
-                startMillis = nextSegmentStart,
-                level = intensity,
-                durationSec = durationSec,
+        val accountStates = runs.map { run ->
+            val account = accountRepository.getAccountById(run.accountId)
+            AccountRunUiState(
+                runId = run.id,
+                accountEmail = account?.email ?: run.accountId,
             )
-            segmentIndex++
-            nextSegmentStart = segment.endTimeMillis
-            queue.addLast(segment)
+        }
 
-            if (queue.size >= run.batchSize) {
-                val batchResult = writeBatch(
-                    runId = runId,
-                    account = account,
-                    batch = queue.toList(),
-                    forceFail = forceFailNextWrite,
-                )
-                forceFailNextWrite = false
-                if (batchResult.isFailure) {
-                    return failRun(
-                        runId,
-                        batchResult.exceptionOrNull()?.message
-                            ?: appContext.getString(R.string.error_write_failed),
-                        totalStepsWritten,
+        runSessionStateHolder.beginSession(
+            sessionId = sessionId,
+            intensityName = intensity.displayName,
+            startTimeMillis = first.startTime,
+            durationMinutes = first.durationMinutes,
+            accounts = accountStates,
+        )
+        promoteForeground()
+        Log.d(TAG, "Session promoted to foreground sessionId=$sessionId accounts=${accountStates.size}")
+
+        sessionCoordinator.initJobCount(runs.size)
+        val callbacks = object : AccountRunContext.Callbacks {
+            override suspend fun onProgress(runId: String, totalSteps: Int, segmentsWritten: Int) {
+                runSessionStateHolder.updateAccountProgress(runId, totalSteps, segmentsWritten)
+                updateForegroundNotification()
+            }
+
+            override suspend fun onFinalize(
+                runId: String,
+                status: RunStatus,
+                totalStepsWritten: Int,
+                errorMessage: String?,
+            ) {
+                finalizeAccountRun(runId, status, totalStepsWritten, errorMessage)
+            }
+        }
+
+        runs.forEach { run ->
+            val account = accountRepository.getAccountById(run.accountId)
+            if (account == null) {
+                lifecycleScope.launch(Dispatchers.Default) {
+                    finalizeAccountRun(
+                        runId = run.id,
+                        status = RunStatus.FAILED,
+                        totalStepsWritten = 0,
+                        errorMessage = appContext.getString(R.string.error_account_not_available),
                     )
                 }
-                totalStepsWritten += batchResult.getOrThrow()
-                segmentsWritten += queue.size
-                queue.clear()
-                updateRunningState(
-                    runId = runId,
-                    intensityName = intensity.displayName,
-                    startTimeMillis = run.startTime,
-                    durationMinutes = run.durationMinutes,
-                    totalSteps = totalStepsWritten,
-                    segmentsWritten = segmentsWritten,
-                )
+                return@forEach
+            }
+            val job = lifecycleScope.launch(Dispatchers.Default) {
+                try {
+                    AccountRunContext(
+                        runId = run.id,
+                        account = account,
+                        coordinator = sessionCoordinator,
+                        runRepository = runRepository,
+                        fitWriter = fitWriter,
+                        appContext = appContext,
+                        callbacks = callbacks,
+                        forceFailNextWrite = run.id == forceFailRunId,
+                    ).executeRunLoop()
+                } catch (e: CancellationException) {
+                    Log.d(TAG, "Account run cancelled runId=${run.id}")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Account run crashed runId=${run.id}", e)
+                    finalizeAccountRun(
+                        runId = run.id,
+                        status = RunStatus.FAILED,
+                        totalStepsWritten = 0,
+                        errorMessage = appContext.getString(R.string.error_unexpected_service),
+                    )
+                }
+            }
+            accountJobs.add(job)
+        }
+    }
+
+    private suspend fun failSession(sessionId: String, message: String) {
+        val runs = runRepository.getRunsBySessionId(sessionId)
+        runs.forEach { run ->
+            if (run.status == RunStatus.RUNNING.name) {
+                finalizeAccountRun(run.id, RunStatus.FAILED, 0, message)
             }
         }
-
-        if (queue.isNotEmpty()) {
-            val batchResult = writeBatch(
-                runId = runId,
-                account = account,
-                batch = queue.toList(),
-                forceFail = forceFailNextWrite,
-            )
-            if (batchResult.isFailure) {
-                return failRun(
-                    runId,
-                    batchResult.exceptionOrNull()?.message
-                        ?: appContext.getString(R.string.error_write_failed),
-                    totalStepsWritten,
-                )
-            }
-            totalStepsWritten += batchResult.getOrThrow()
-            segmentsWritten += queue.size
-            queue.clear()
-        }
-
-        val finalStatus = if (manualStopRequested) RunStatus.STOPPED else RunStatus.COMPLETED
-        Log.d(TAG, "Run loop finished runId=$runId status=$finalStatus steps=$totalStepsWritten")
-        finalizeRun(runId, finalStatus, totalStepsWritten, null)
     }
 
-    private suspend fun writeBatch(
-        runId: String,
-        account: GoogleSignInAccount,
-        batch: List<SegmentData>,
-        forceFail: Boolean,
-    ): Result<Int> {
-        val writeTime = System.currentTimeMillis()
-        val result = if (forceFail) {
-            Result.failure(IllegalStateException(appContext.getString(R.string.error_injected_write_failure)))
-        } else {
-            fitWriter.writeSegments(account, batch)
-        }
-
-        val success = result.isSuccess
-        val errorMessage = result.exceptionOrNull()?.message
-        val records = batch.map { segment ->
-            SegmentRecordEntity(
-                id = UUID.randomUUID().toString(),
-                runId = runId,
-                segmentIndex = segment.segmentIndex,
-                startTime = segment.startTimeMillis,
-                endTime = segment.endTimeMillis,
-                steps = segment.steps,
-                distanceMeters = segment.distanceMeters,
-                writeTime = writeTime,
-                success = success,
-                errorMessage = errorMessage,
-            )
-        }
-        runRepository.insertSegments(records)
-
-        return result.map { batch.sumOf { segment -> segment.steps } }
-    }
-
-    private suspend fun failRun(runId: String, message: String, totalStepsWritten: Int) {
-        Log.e(TAG, "failRun runId=$runId message=$message")
-        notificationHelper.showError(message)
-        finalizeRun(runId, RunStatus.FAILED, totalStepsWritten, message)
-    }
-
-    private suspend fun finalizeRun(
+    private suspend fun finalizeAccountRun(
         runId: String,
         status: RunStatus,
         totalStepsWritten: Int,
         errorMessage: String?,
     ) {
+        if (!finalizedRuns.add(runId)) return
+        Log.d(TAG, "finalizeAccountRun runId=$runId status=$status steps=$totalStepsWritten")
         runRepository.finalizeRun(
             runId = runId,
             status = status,
@@ -244,18 +194,28 @@ class RunForegroundService : LifecycleService() {
             totalStepsWritten = totalStepsWritten,
             errorMessage = errorMessage,
         )
-        runStateHolder.setFinished(status, errorMessage)
-        runStateHolder.clear()
-        Log.d(TAG, "finalizeRun runId=$runId status=$status")
+        runSessionStateHolder.markAccountFinished(runId, status, errorMessage)
+        updateForegroundNotification()
+
+        val sessionCoordinator = coordinator
+        if (sessionCoordinator != null && sessionCoordinator.onJobCompleted()) {
+            runSessionStateHolder.clear()
+            shutdownService()
+        }
+    }
+
+    private suspend fun shutdownService() {
+        Log.d(TAG, "Session shutdown complete")
+        coordinator = null
         withContext(Dispatchers.Main) {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
     }
 
-    private fun promoteForeground(intensityName: String) {
-        val notification = notificationHelper.buildNotification(
-            RunUiState(intensityName = intensityName),
+    private fun promoteForeground() {
+        val notification = notificationHelper.buildSessionNotification(
+            runSessionStateHolder.state.value.withCurrentTiming(),
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
@@ -268,52 +228,27 @@ class RunForegroundService : LifecycleService() {
         }
     }
 
-    /**
-     * Sleeps in short chunks so [manualStopRequested] is observed within ~[STOP_POLL_INTERVAL_MS].
-     * @return true if stop was requested before the full duration elapsed.
-     */
-    private suspend fun delayUntilStopOrElapsed(totalMillis: Long): Boolean {
-        var remaining = totalMillis
-        while (remaining > 0 && !manualStopRequested) {
-            val chunk = minOf(remaining, STOP_POLL_INTERVAL_MS)
-            delay(chunk)
-            remaining -= chunk
-        }
-        return manualStopRequested
-    }
-
-    private fun updateRunningState(
-        runId: String,
-        intensityName: String,
-        startTimeMillis: Long,
-        durationMinutes: Int,
-        totalSteps: Int,
-        segmentsWritten: Int,
-    ) {
-        runStateHolder.setRunning(
-            runId = runId,
-            intensityName = intensityName,
-            startTimeMillis = startTimeMillis,
-            durationMinutes = durationMinutes,
-            totalSteps = totalSteps,
-            segmentsWritten = segmentsWritten,
+    private fun updateForegroundNotification() {
+        val notification = notificationHelper.buildSessionNotification(
+            runSessionStateHolder.state.value.withCurrentTiming(),
         )
-        val notification = notificationHelper.buildNotification(runStateHolder.state.value)
         val notificationManager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
         notificationManager.notify(RunNotificationHelper.NOTIFICATION_ID, notification)
     }
 
     override fun onDestroy() {
-        runJob?.cancel()
+        accountJobs.forEach { it.cancel() }
+        accountJobs.clear()
         super.onDestroy()
     }
 
     companion object {
         private const val TAG = "APBFit_Run"
-        const val ACTION_START = "com.pixson.apbfit.action.START_RUN"
-        const val ACTION_STOP = "com.pixson.apbfit.action.STOP_RUN"
-        const val EXTRA_RUN_ID = "extra_run_id"
-        const val EXTRA_FORCE_FAIL_NEXT_WRITE = "extra_force_fail_next_write"
-        private const val STOP_POLL_INTERVAL_MS = 500L
+        const val ACTION_START_SESSION = "com.pixson.apbfit.action.START_SESSION"
+        const val ACTION_STOP_SESSION = "com.pixson.apbfit.action.STOP_SESSION"
+        /** @deprecated Use [ACTION_STOP_SESSION]. */
+        const val ACTION_STOP = ACTION_STOP_SESSION
+        const val EXTRA_SESSION_ID = "extra_session_id"
+        const val EXTRA_FORCE_FAIL_RUN_ID = "extra_force_fail_run_id"
     }
 }

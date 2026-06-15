@@ -3,8 +3,8 @@ package com.pixson.apbfit.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixson.apbfit.service.RunServiceStarter
-import com.pixson.apbfit.service.RunStateHolder
-import com.pixson.apbfit.service.RunUiState
+import com.pixson.apbfit.service.RunSessionStateHolder
+import com.pixson.apbfit.service.RunSessionUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,7 +16,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ActiveRunViewModel @Inject constructor(
-    runStateHolder: RunStateHolder,
+    runSessionStateHolder: RunSessionStateHolder,
     private val runServiceStarter: RunServiceStarter,
 ) : ViewModel() {
     private val tick = flow {
@@ -26,14 +26,14 @@ class ActiveRunViewModel @Inject constructor(
         }
     }
 
-    val uiState: StateFlow<RunUiState> = combine(
-        runStateHolder.state,
+    val uiState: StateFlow<RunSessionUiState> = combine(
+        runSessionStateHolder.state,
         tick,
     ) { state, _ ->
         state.withCurrentTiming()
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RunUiState())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RunSessionUiState())
 
-    fun stopRun() {
-        runServiceStarter.stopRun()
+    fun stopSession() {
+        runServiceStarter.stopSession()
     }
 }

@@ -23,17 +23,17 @@ fun ApbFitNavHost(
     rootViewModel: RootViewModel = hiltViewModel(),
 ) {
     val activeAccount by rootViewModel.accountRepository.activeAccount.collectAsStateWithLifecycle()
-    val runState by rootViewModel.runStateHolder.state.collectAsStateWithLifecycle()
+    val sessionState by rootViewModel.runSessionStateHolder.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(activeAccount, runState.isActive) {
+    LaunchedEffect(activeAccount, sessionState.session.isActive) {
         val destination = when {
             activeAccount == null -> Routes.SIGN_IN
-            runState.isActive -> Routes.ACTIVE_RUN
+            sessionState.session.isActive -> Routes.ACTIVE_RUN
             else -> Routes.HOME
         }
         android.util.Log.d(
             "APBFit_Run",
-            "Nav gate: destination=$destination isActive=${runState.isActive} runId=${runState.runId} status=${runState.status}",
+            "Nav gate: destination=$destination isActive=${sessionState.session.isActive} sessionId=${sessionState.session.sessionId}",
         )
         if (navController.currentDestination?.route != destination) {
             navController.navigate(destination) {
