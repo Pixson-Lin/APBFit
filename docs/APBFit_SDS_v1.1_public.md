@@ -40,7 +40,7 @@ v1.1 builds on the existing v1.0 codebase. This document describes **new or chan
 
 **In scope:** concurrent Run Sessions, SessionCoordinator, schema/prefs changes, UI redesign per [UI draft](APBFit_v1.1_UI_draft.png), notification groups, full-session recovery, zh-TW strings.
 
-**Out of scope:** custom intensity editing, i18n resource splitting, Health Connect, cloud sync, Play Store publication.
+**Out of scope:** custom intensity editing, i18n resource splitting, Health Connect, Play Store publication, and **cross-device / cloud-sync visibility** (pending; see SRS §10.x and the [Google Fit Sync Investigation](APBFit_GoogleFit_Sync_Investigation.md)). v1.1 designs for a **same-device** write guarantee only (SRS NFR-009).
 
 ### 1.3 Intended Audience
 
@@ -542,6 +542,7 @@ Manual path (Settings): same finalize logic gated on `!RunSessionStateHolder.isA
 - **Environment checks (FR-015).** `HomeViewModel` maps three icon states; FIT icon WARN if Google Fit missing **or** any enabled account lacks fitness permission.
 - **Traditional Chinese (NFR-008).** All `strings.xml` entries in zh-TW; notification strings zh-TW; intensity `displayName` in enum. Brand **APBFit** not translated.
 - **Account isolation.** History dropdown enforces scope; concurrent session still writes per-account DataSources.
+- **Data visibility scope (SRS NFR-009).** `FitWriter.writeSegments` guarantees a write to the **local** Google Fit store on the writing device only. Google Fit cloud upload/download is passive (`WorkManager`-scheduled) and **cannot be forced** by any API; the design must not imply or depend on cross-device propagation. Cross-device sync is **pending** (SRS §10.x). Rationale and evidence: [Google Fit Sync Investigation](APBFit_GoogleFit_Sync_Investigation.md).
 - **Privacy.** Unchanged from v1.0.
 - **Permissions.** Unchanged from v1.0.
 
@@ -669,6 +670,7 @@ Same as v1.0 SDS:
 | Room migration failure on user devices | Crash on upgrade | Migration sets `sessionId = id`; test upgrade from v1.0 DB |
 | zh-TW string audit incomplete | English leaks in UI | S4/S6 string audit checklist; lint for hardcoded strings |
 | Background execution (inherited) | Session interrupted | Same mitigations as v1.0; multi-account increases blast radius — session-level QA |
+| Cross-device data not visible | User expects device-B visibility | **Accepted platform limitation** (SRS NFR-009); documented as same-device-only guarantee + pending sync (SRS §10.x, [Sync Investigation](APBFit_GoogleFit_Sync_Investigation.md)); no v1.1 UI implies cross-device |
 | Part-time schedule slip | Delayed release | Same ~36–40 h/sprint buffer as v1.0; each sprint has independent deliverable |
 
 ---
@@ -676,6 +678,8 @@ Same as v1.0 SDS:
 ## 12. Open Questions
 
 None blocking. v1.2 custom intensity remains conditional per SRS §10. Multi-language i18n deferred to a future minor release.
+
+**Resolved (2026-06-21):** cross-device / cloud-sync visibility was investigated and confirmed to be an un-forceable Google Fit platform limitation. It is now scoped out of v1.1 (same-device guarantee, SRS NFR-009) and tracked as a pending capability (SRS §10.x). See [Google Fit Sync Investigation](APBFit_GoogleFit_Sync_Investigation.md).
 
 ---
 

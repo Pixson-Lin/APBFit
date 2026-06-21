@@ -27,6 +27,7 @@
 8. Permission Requirements
 9. Intensity Level Reference
 10. Future Versions
+10.x. Pending Capability: Cross-Device Data Sync
 11. Change Log from v1.0
 
 ---
@@ -63,7 +64,8 @@ Version 1.1 extends v1.0 with **concurrent multi-account run sessions**, a **sim
 - Custom intensity parameter editing (user-defined SPM/stride input)
 - Runtime multi-language / i18n architecture
 - Health Connect write path
-- Cloud sync or multi-device dashboard
+- **Cross-device / cloud-sync visibility of written data** — deferred and described in §10.x (Pending). Google Fit cloud sync is passive and cannot be forced; see [Google Fit Sync Investigation](APBFit_GoogleFit_Sync_Investigation.md). v1.1 guarantees **same-device** visibility only (NFR-009).
+- Multi-device dashboard
 - Google Play Store publication (still sideload in v1.1)
 - Per-account Stop during an active session
 - Per-account independent run configuration within one session
@@ -288,6 +290,7 @@ Reference: [APBFit_v1.1_UI_draft.png](APBFit_v1.1_UI_draft.png)
 - **Failure scope (v1.1):** if a batch write fails for account A, **only** account A's run is marked `FAILED` and its coroutine stops (FR-010). Other accounts in the session **continue** until they complete, are stopped, or fail independently.
 - Successful writes for other accounts are retained.
 - No retry on failed batch.
+- **Visibility scope:** a successful `insertData()` guarantees the data is written to the Google Fit store on the **writing device** for that account. Propagation to Google Fit cloud and to other devices is **not guaranteed** (passive, un-forceable sync — NFR-009, [Sync Investigation](APBFit_GoogleFit_Sync_Investigation.md)).
 
 ---
 
@@ -537,6 +540,13 @@ Unchanged: MVVM, Repository, Room, `FitWriter` interface.
 - Debug-only developer tools may remain English.
 - Multi-language support and `values-xx` resource splitting are **deferred** to a future version; v1.1 uses a single `values/strings.xml` edited in Traditional Chinese.
 
+### NFR-009 — Data Visibility Scope (Same-Device Guarantee)
+
+- **Guaranteed:** data written by APBFit is available in the Google Fit store on the **same device**, for the **same account**, effectively immediately after a successful batch write. This supports the primary use case where a downstream validator app runs on the **same phone**.
+- **Not guaranteed:** cross-device visibility (writing on device A, reading the same account on device B). Google Fit's cloud upload/download is passive (`WorkManager`-scheduled) and **cannot be forced** by any API; the only reliable trigger observed is a manual Google Fit account logout/login on each device.
+- This is a **Google Fit platform limitation**, not an APBFit defect. Full analysis and evidence: [Google Fit Sync Investigation](APBFit_GoogleFit_Sync_Investigation.md).
+- Cross-device sync requirements are **pending**; see §10.x.
+
 ---
 
 ## 6. Data Model
@@ -664,13 +674,35 @@ Alternative `FitWriter` implementations if Google Fit API changes.
 
 Extract strings to proper i18n resources (`values-zh-rTW`, `values-en`, etc.) with runtime or system locale selection.
 
-### v2.0 — Multi-Device Dashboard
-
-Cloud sync and web dashboard.
-
 ### v2.1 — Export Function
 
 Export run history as CSV or JSON.
+
+---
+
+## 10.x — Pending Capability: Cross-Device Data Sync
+
+> Consolidated here per the [Google Fit Sync Investigation](APBFit_GoogleFit_Sync_Investigation.md) (2026-06-21). All cross-device / cloud-visibility behavior is **pending** and excluded from v1.1 guarantees (see NFR-009).
+
+**Problem statement.** Users may want data written by APBFit on one device to be visible, for the
+same account, on a second device (e.g., a downstream validator running on a different phone).
+
+**Why it is pending (not implemented).** Google Fit's legacy Fitness API writes to a device-local
+store; cloud upload and download are passive, battery-optimized, and **cannot be forced** through
+any public API. The only reliable trigger is a manual account logout/login on each device.
+The Fitness REST API (which could write directly to cloud) is closed to new sign-ups and shuts
+down at the end of 2026; Health Connect is on-device only (no cloud sync); the Google Health API
+is not available for this use case.
+
+**Deferred requirements (to be designed when revisited):**
+
+- PEND-SYNC-1 — Same-account data written on device A becomes visible on device B within a defined SLA.
+- PEND-SYNC-2 — A user- or app-triggered "sync now" mechanism with observable status.
+- PEND-SYNC-3 — A multi-device dashboard / web view of run history and written data.
+
+**Likely direction.** Achievable only via a **platform migration away from Google Fit** (e.g., an
+account-centric custom backend or a different cloud health API), tracked separately from v1.x
+feature work. No committed version.
 
 ---
 
