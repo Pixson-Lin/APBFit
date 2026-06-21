@@ -39,6 +39,10 @@ class UiStrings @Inject constructor(
     val zeroDuration: String get() = get(R.string.error_zero_duration)
     val unexpectedServiceError: String get() = get(R.string.error_unexpected_service)
     val injectedWriteFailure: String get() = get(R.string.error_injected_write_failure)
+    val recoveredOrphanNone: String get() = get(R.string.msg_recovered_orphan_none)
+
+    fun preflightFailed(accountEmail: String, detail: String?): String =
+        get(R.string.error_preflight_account, accountEmail, detail ?: dataSourceSetupFailed)
 
     fun addedAccount(email: String): String = get(R.string.msg_added_account, email)
     fun testBatchWritten(steps: Int): String = get(R.string.msg_test_batch_written, steps)

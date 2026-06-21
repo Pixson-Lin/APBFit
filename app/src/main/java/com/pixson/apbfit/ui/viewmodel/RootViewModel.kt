@@ -24,7 +24,11 @@ class RootViewModel @Inject constructor(
             runRepository.deleteOlderThan(
                 System.currentTimeMillis() - RETENTION_MILLIS,
             )
-            val recovered = runRepository.recoverOrphanedSessions(uiStrings.recoveredAfterRestart)
+            val recovered = if (!runSessionStateHolder.isActive) {
+                runRepository.recoverOrphanedSessions(uiStrings.recoveredAfterRestart)
+            } else {
+                0
+            }
             if (recovered > 0) {
                 runSessionStateHolder.clear()
                 Log.w(TAG, "Recovered $recovered orphaned RUNNING run(s) from previous session.")

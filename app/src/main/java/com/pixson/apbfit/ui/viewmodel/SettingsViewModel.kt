@@ -28,8 +28,10 @@ data class SettingsUiState(
     val activeAccountEmail: String? = null,
     val accounts: List<SettingsAccountItem> = emptyList(),
     val canSwitchAccount: Boolean = true,
+    val showRecoverOrphanButton: Boolean = false,
     val statusMessage: String? = null,
     val showClearHistoryConfirm: Boolean = false,
+    val showRecoverOrphanConfirm: Boolean = false,
 )
 
 @HiltViewModel
@@ -42,13 +44,23 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
     private val statusMessage = MutableStateFlow<String?>(null)
     private val showClearHistoryConfirm = MutableStateFlow(false)
+    private val showRecoverOrphanConfirm = MutableStateFlow(false)
+    private val orphanRunningCount = MutableStateFlow(0)
 
     val uiState: StateFlow<SettingsUiState> = combine(
-        accountRepository.activeAccount,
-        runSessionStateHolder.state.map { it.session.isActive },
-        statusMessage,
-        showClearHistoryConfirm,
-    ) { active, runActive, status, showConfirm ->
+        combine(
+            accountRepository.activeAccount,
+            runSessionStateHolder.state.map { it.session.isActive },
+            orphanRunningCount,
+        ) { active, runActive, orphanCount -> Triple(active, runActive, orphanCount) },
+        combine(
+            statusMessage,
+            showClearHistoryConfirm,
+            showRecoverOrphanConfirm,
+        ) { status, showClearConfirm, showRecoverConfirm ->
+            Triple(status, showClearConfirm, showRecoverConfirm)
+        },
+    ) { (active, runActive, orphanCount), (status, showClearConfirm, showRecoverConfirm) ->
         val accounts = accountRepository.getKnownAccounts().map { account ->
             SettingsAccountItem(
                 id = account.id.orEmpty(),
@@ -60,12 +72,38 @@ class SettingsViewModel @Inject constructor(
             activeAccountEmail = active?.email,
             accounts = accounts,
             canSwitchAccount = !runActive,
+            showRecoverOrphanButton = orphanCount > 0 && !runActive,
             statusMessage = status,
-            showClearHistoryConfirm = showConfirm,
+            showClearHistoryConfirm = showClearConfirm,
+            showRecoverOrphanConfirm = showRecoverConfirm,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
-    fun getSignInIntent(): Intent = accountRepository.getSignInIntent()
+    init {
+        refreshOrphanState()
+    }
+
+    fun refreshOrphanState() {
+        viewModelScope.launch {
+            orphanRunningCount.value = if (runSessionStateHolder.isActive) {
+                0
+            } else {
+                runRepository.getAllActiveRuns().size
+            }
+        }
+    }
+
+    fun launchAddAccount(launchIntent: (Intent) -> Unit) {
+        viewModelScope.launch {
+            runCatching {
+                accountRepository.getAddAccountIntent()
+            }.onSuccess { intent ->
+                launchIntent(intent)
+            }.onFailure {
+                statusMessage.value = it.message ?: uiStrings.signInFailed
+            }
+        }
+    }
 
     fun onAddAccountResult(data: Intent?) {
         viewModelScope.launch {
@@ -96,6 +134,32 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             accountRepository.signOutCurrentAccount()
             statusMessage.value = uiStrings.signedOut
+        }
+    }
+
+    fun requestRecoverOrphanConfirm() {
+        showRecoverOrphanConfirm.value = true
+    }
+
+    fun dismissRecoverOrphanConfirm() {
+        showRecoverOrphanConfirm.value = false
+    }
+
+    fun confirmRecoverOrphanSessions() {
+        viewModelScope.launch {
+            if (runSessionStateHolder.isActive) {
+                showRecoverOrphanConfirm.value = false
+                return@launch
+            }
+            val recovered = runRepository.recoverOrphanedSessions(uiStrings.recoveredAfterRestart)
+            runSessionStateHolder.clear()
+            showRecoverOrphanConfirm.value = false
+            refreshOrphanState()
+            statusMessage.value = if (recovered > 0) {
+                uiStrings.recoveredRun
+            } else {
+                uiStrings.recoveredOrphanNone
+            }
         }
     }
 

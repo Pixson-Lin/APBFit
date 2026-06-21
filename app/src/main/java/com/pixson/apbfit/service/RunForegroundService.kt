@@ -33,6 +33,8 @@ class RunForegroundService : LifecycleService() {
     @Inject lateinit var notificationHelper: RunNotificationHelper
 
     private var coordinator: SessionCoordinator? = null
+    private var activeSessionId: String? = null
+    private val activeRunIds = mutableListOf<String>()
     private val accountJobs = mutableListOf<Job>()
     private val finalizedRuns = ConcurrentHashMap.newKeySet<String>()
 
@@ -63,6 +65,8 @@ class RunForegroundService : LifecycleService() {
         accountJobs.clear()
         finalizedRuns.clear()
         coordinator = null
+        activeSessionId = null
+        activeRunIds.clear()
 
         lifecycleScope.launch(Dispatchers.Default) {
             try {
@@ -93,6 +97,9 @@ class RunForegroundService : LifecycleService() {
             batchSize = first.batchSize,
         )
         coordinator = sessionCoordinator
+        activeSessionId = sessionId
+        activeRunIds.clear()
+        activeRunIds.addAll(runs.map { it.id })
 
         val accountStates = runs.map { run ->
             val account = accountRepository.getAccountById(run.accountId)
@@ -116,7 +123,7 @@ class RunForegroundService : LifecycleService() {
         val callbacks = object : AccountRunContext.Callbacks {
             override suspend fun onProgress(runId: String, totalSteps: Int, segmentsWritten: Int) {
                 runSessionStateHolder.updateAccountProgress(runId, totalSteps, segmentsWritten)
-                updateForegroundNotification()
+                updateSessionNotifications()
             }
 
             override suspend fun onFinalize(
@@ -195,7 +202,7 @@ class RunForegroundService : LifecycleService() {
             errorMessage = errorMessage,
         )
         runSessionStateHolder.markAccountFinished(runId, status, errorMessage)
-        updateForegroundNotification()
+        updateSessionNotifications()
 
         val sessionCoordinator = coordinator
         if (sessionCoordinator != null && sessionCoordinator.onJobCompleted()) {
@@ -206,7 +213,14 @@ class RunForegroundService : LifecycleService() {
 
     private suspend fun shutdownService() {
         Log.d(TAG, "Session shutdown complete")
+        val sessionId = activeSessionId
+        val runIds = activeRunIds.toList()
         coordinator = null
+        activeSessionId = null
+        activeRunIds.clear()
+        if (sessionId != null) {
+            notificationHelper.cancelSessionNotifications(runIds)
+        }
         withContext(Dispatchers.Main) {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
@@ -214,26 +228,29 @@ class RunForegroundService : LifecycleService() {
     }
 
     private fun promoteForeground() {
-        val notification = notificationHelper.buildSessionNotification(
+        val sessionId = activeSessionId ?: return
+        val notification = notificationHelper.buildSummaryNotification(
+            sessionId,
             runSessionStateHolder.state.value.withCurrentTiming(),
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
-                RunNotificationHelper.NOTIFICATION_ID,
+                RunNotificationHelper.SUMMARY_NOTIFICATION_ID,
                 notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
             )
         } else {
-            startForeground(RunNotificationHelper.NOTIFICATION_ID, notification)
+            startForeground(RunNotificationHelper.SUMMARY_NOTIFICATION_ID, notification)
         }
+        updateSessionNotifications()
     }
 
-    private fun updateForegroundNotification() {
-        val notification = notificationHelper.buildSessionNotification(
+    private fun updateSessionNotifications() {
+        val sessionId = activeSessionId ?: return
+        notificationHelper.updateSessionNotifications(
+            sessionId,
             runSessionStateHolder.state.value.withCurrentTiming(),
         )
-        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
-        notificationManager.notify(RunNotificationHelper.NOTIFICATION_ID, notification)
     }
 
     override fun onDestroy() {

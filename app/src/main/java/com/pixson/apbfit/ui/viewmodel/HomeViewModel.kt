@@ -13,6 +13,8 @@ import com.pixson.apbfit.domain.CheckStatus
 import com.pixson.apbfit.domain.EnvironmentCheck
 import com.pixson.apbfit.domain.EnvironmentCheckId
 import com.pixson.apbfit.domain.EnvironmentChecker
+import com.pixson.apbfit.domain.PreflightException
+import com.pixson.apbfit.domain.SessionPreflight
 import com.pixson.apbfit.domain.fit.FailingFitWriter
 import com.pixson.apbfit.domain.fit.FitWriter
 import com.pixson.apbfit.domain.fit.SegmentGenerator
@@ -58,6 +60,7 @@ class HomeViewModel @Inject constructor(
     private val fitWriter: FitWriter,
     private val segmentGenerator: SegmentGenerator,
     private val environmentChecker: EnvironmentChecker,
+    private val sessionPreflight: SessionPreflight,
     private val uiStrings: UiStrings,
 ) : ViewModel() {
     private val statusMessage = MutableStateFlow<String?>(null)
@@ -150,7 +153,19 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun addAccountIntent(): Intent = accountRepository.getSignInIntent()
+    fun launchAddAccount(launchIntent: (Intent) -> Unit) {
+        viewModelScope.launch {
+            isBusy.value = true
+            runCatching {
+                accountRepository.getAddAccountIntent()
+            }.onSuccess { intent ->
+                launchIntent(intent)
+            }.onFailure {
+                statusMessage.value = it.message ?: uiStrings.signInFailed
+            }
+            isBusy.value = false
+        }
+    }
 
     fun onAddAccountResult(data: Intent?) {
         viewModelScope.launch {
@@ -166,10 +181,10 @@ class HomeViewModel @Inject constructor(
     fun startRun() {
         viewModelScope.launch {
             isBusy.value = true
-            var createdSessionId: String? = null
             runCatching {
                 val account = accountRepository.requireActiveAccount()
                 Log.d(TAG, "Start session requested for account=${account.email}")
+                sessionPreflight.ensureAll(listOf(account)).getOrThrow()
                 val result = runRepository.startSession(
                     RunSessionConfig(
                         durationMinutes = durationMinutes.value,
@@ -178,33 +193,13 @@ class HomeViewModel @Inject constructor(
                     ),
                     listOf(account.id!!),
                 )
-                createdSessionId = result.sessionId
                 Log.d(TAG, "Session rows created sessionId=${result.sessionId}, starting foreground service")
                 runServiceStarter.startSession(result.sessionId)
             }.onSuccess {
                 statusMessage.value = null
                 Log.d(TAG, "Foreground service start requested successfully")
             }.onFailure { error ->
-                Log.e(TAG, "Start session failed: ${error.message}", error)
-                when (error) {
-                    is RunAlreadyActiveException -> {
-                        val recovered = recoverStaleRunIfNeeded(showMessage = true)
-                        if (!recovered) {
-                            statusMessage.value = uiStrings.runAlreadyActive
-                        }
-                    }
-                    else -> {
-                        createdSessionId?.let { sessionId ->
-                            runRepository.getRunsBySessionId(sessionId).forEach { run ->
-                                runRepository.abandonRun(
-                                    run.id,
-                                    error.message ?: uiStrings.failedStartRun,
-                                )
-                            }
-                        }
-                        statusMessage.value = error.message ?: uiStrings.failedStartRun
-                    }
-                }
+                handleStartSessionFailure(error, null)
             }
             isBusy.value = false
         }
@@ -298,6 +293,7 @@ class HomeViewModel @Inject constructor(
                 if (accountIds.size < DEBUG_SESSION_ACCOUNT_COUNT) {
                     throw IllegalStateException(uiStrings.debugRequiresTwoAccounts)
                 }
+                sessionPreflight.ensureAll(accounts).getOrThrow()
                 val result = runRepository.startSession(
                     RunSessionConfig(
                         durationMinutes = DEBUG_RUN_DURATION_MINUTES,
@@ -310,10 +306,36 @@ class HomeViewModel @Inject constructor(
                 runServiceStarter.startSession(result.sessionId, forceFailRunId)
             }.onSuccess {
                 statusMessage.value = uiStrings.debugRunStarted
-            }.onFailure {
-                statusMessage.value = it.message ?: uiStrings.failedStartRun
+            }.onFailure { error ->
+                handleStartSessionFailure(error, null)
             }
             isBusy.value = false
+        }
+    }
+
+    private suspend fun handleStartSessionFailure(error: Throwable, createdSessionId: String?) {
+        Log.e(TAG, "Start session failed: ${error.message}", error)
+        when (error) {
+            is RunAlreadyActiveException -> {
+                val recovered = recoverStaleRunIfNeeded(showMessage = true)
+                if (!recovered) {
+                    statusMessage.value = uiStrings.runAlreadyActive
+                }
+            }
+            is PreflightException -> {
+                statusMessage.value = uiStrings.preflightFailed(error.accountEmail, error.message)
+            }
+            else -> {
+                createdSessionId?.let { sessionId ->
+                    runRepository.getRunsBySessionId(sessionId).forEach { run ->
+                        runRepository.abandonRun(
+                            run.id,
+                            error.message ?: uiStrings.failedStartRun,
+                        )
+                    }
+                }
+                statusMessage.value = error.message ?: uiStrings.failedStartRun
+            }
         }
     }
 

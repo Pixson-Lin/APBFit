@@ -56,6 +56,7 @@
     <string name="notification_steps_written">已寫入 %1$d 步</string>
     <string name="notification_remaining">剩餘 %1$s</string>
     <string name="notification_stop">停止</string>
+    <string name="notification_account_line">%1$s · %2$d 步 · 剩餘 %3$s</string>
 
     <string name="debug_panel_title">開發者工具</string>
     <string name="debug_start_run">開始除錯 Run（5 分鐘）</string>
@@ -91,6 +92,10 @@
     <string name="settings_clear_history_message">將刪除此帳號的所有 Run 與紀錄明細，且無法復原。</string>
     <string name="settings_clear_history_confirm">清除</string>
     <string name="settings_clear_history_cancel">取消</string>
+    <string name="settings_recover_orphan">重設進行中紀錄</string>
+    <string name="settings_recover_orphan_title">重設進行中紀錄？</string>
+    <string name="settings_recover_orphan_message">將把所有標記為進行中的 Run 設為已停止，並保留已寫入的步數。此操作無法復原。</string>
+    <string name="settings_recover_orphan_confirm">重設</string>
     <string name="settings_shortcuts_section">捷徑</string>
     <string name="settings_battery_optimization">電池最佳化</string>
     <string name="settings_app_details">應用程式詳細資料</string>
@@ -105,6 +110,8 @@
     <string name="segment_status_success">成功</string>
     <string name="segment_status_failed">失敗</string>
 
+    <string name="error_preflight_account">%1$s 預檢失敗：%2$s</string>
+    <string name="msg_recovered_orphan_none">沒有需要重設的進行中紀錄。</string>
     <string name="error_run_already_active">已有 Run 進行中。</string>
     <string name="msg_recovered_run">先前的 Run 已中斷並標記為已停止，請再次開始。</string>
     <string name="error_recovered_after_restart">應用程式重啟後已自動結束。</string>

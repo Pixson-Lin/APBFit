@@ -2,6 +2,7 @@ package com.pixson.apbfit.data.repository
 
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -14,10 +15,12 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
 
 @Singleton
 class AccountRepository @Inject constructor(
@@ -52,18 +55,40 @@ class AccountRepository @Inject constructor(
 
     fun getSignInIntent(): Intent = googleSignInClient.signInIntent
 
+    /**
+     * Clears the Google Play Services sign-in session (not [accountCache]) so the next
+     * [getSignInIntent] shows the account picker instead of silently reusing the active account.
+     */
+    suspend fun getAddAccountIntent(): Intent {
+        val activeEmail = _activeAccount.value?.email
+        Log.d(TAG, "getAddAccountIntent: signing out GMS session (active=$activeEmail) to force picker")
+        awaitGoogleSignOut()
+        return googleSignInClient.signInIntent
+    }
+
     /** Re-runs Google Sign-In to grant any missing Fitness OAuth scopes (e.g. READ). */
     fun getFitnessPermissionsIntent(): Intent = googleSignInClient.signInIntent
 
     suspend fun handleSignInResult(data: Intent?): Result<GoogleSignInAccount> = mutex.withLock {
         runCatching {
+            if (data == null) {
+                Log.w(TAG, "handleSignInResult: intent data is null (cancelled?)")
+                error("Sign-in was cancelled.")
+            }
             val task = GoogleSignIn.getSignedInAccountFromIntent(data)
             val account = task.getResult(ApiException::class.java)
+            val alreadyKnown = account.id in accountPrefs.getKnownAccountIds()
+            Log.d(
+                TAG,
+                "handleSignInResult: email=${account.email} id=${account.id} alreadyKnown=$alreadyKnown",
+            )
             cacheAccount(account)
             accountPrefs.addKnownAccountId(account.id!!)
             accountPrefs.setActiveAccountId(account.id!!)
             _activeAccount.value = account
             account
+        }.onFailure { error ->
+            Log.e(TAG, "handleSignInResult failed: ${error.message}", error)
         }
     }
 
@@ -136,5 +161,13 @@ class AccountRepository @Inject constructor(
     private fun cacheAccount(account: GoogleSignInAccount) {
         val id = account.id ?: return
         accountCache[id] = account
+    }
+
+    private suspend fun awaitGoogleSignOut() = suspendCancellableCoroutine { cont ->
+        googleSignInClient.signOut().addOnCompleteListener { cont.resume(Unit) }
+    }
+
+    companion object {
+        private const val TAG = "APBFit_Account"
     }
 }

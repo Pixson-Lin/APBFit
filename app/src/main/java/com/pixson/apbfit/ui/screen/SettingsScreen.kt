@@ -18,12 +18,16 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixson.apbfit.R
 import com.pixson.apbfit.ui.viewmodel.SettingsViewModel
@@ -34,6 +38,17 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshOrphanState()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     val addAccountLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
@@ -90,7 +105,9 @@ fun SettingsScreen(
         }
 
         Button(
-            onClick = { addAccountLauncher.launch(viewModel.getSignInIntent()) },
+            onClick = {
+                viewModel.launchAddAccount { intent -> addAccountLauncher.launch(intent) }
+            },
             enabled = uiState.canSwitchAccount,
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -111,6 +128,14 @@ fun SettingsScreen(
             text = stringResource(R.string.settings_data_section),
             style = MaterialTheme.typography.titleMedium,
         )
+        if (uiState.showRecoverOrphanButton) {
+            OutlinedButton(
+                onClick = viewModel::requestRecoverOrphanConfirm,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.settings_recover_orphan))
+            }
+        }
         OutlinedButton(
             onClick = viewModel::requestClearHistoryConfirm,
             modifier = Modifier.fillMaxWidth(),
@@ -152,6 +177,24 @@ fun SettingsScreen(
         uiState.statusMessage?.let { message ->
             Text(text = message, style = MaterialTheme.typography.bodyMedium)
         }
+    }
+
+    if (uiState.showRecoverOrphanConfirm) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissRecoverOrphanConfirm,
+            title = { Text(stringResource(R.string.settings_recover_orphan_title)) },
+            text = { Text(stringResource(R.string.settings_recover_orphan_message)) },
+            confirmButton = {
+                TextButton(onClick = viewModel::confirmRecoverOrphanSessions) {
+                    Text(stringResource(R.string.settings_recover_orphan_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissRecoverOrphanConfirm) {
+                    Text(stringResource(R.string.settings_clear_history_cancel))
+                }
+            },
+        )
     }
 
     if (uiState.showClearHistoryConfirm) {

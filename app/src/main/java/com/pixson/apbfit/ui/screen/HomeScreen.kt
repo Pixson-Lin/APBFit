@@ -119,7 +119,9 @@ fun HomeScreen(
             activeAccountEmail = uiState.activeAccountEmail,
             knownAccounts = uiState.knownAccounts,
             onSwitchAccount = viewModel::switchAccount,
-            onAddAccount = { addAccountLauncher.launch(viewModel.addAccountIntent()) },
+            onAddAccount = {
+                viewModel.launchAddAccount { intent -> addAccountLauncher.launch(intent) }
+            },
         )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))

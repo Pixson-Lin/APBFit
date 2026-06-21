@@ -9,6 +9,7 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import com.pixson.apbfit.MainActivity
 import com.pixson.apbfit.R
+import com.pixson.apbfit.data.model.RunStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -33,23 +34,10 @@ class RunNotificationHelper @Inject constructor(
         notificationManager.createNotificationChannel(channel)
     }
 
-    fun buildSessionNotification(state: RunSessionUiState): Notification {
+    fun buildSummaryNotification(sessionId: String, state: RunSessionUiState): Notification {
         val session = state.session
+        val groupKey = groupKey(sessionId)
         val totalSteps = state.accounts.sumOf { it.totalSteps }
-        val openIntent = PendingIntent.getActivity(
-            context,
-            0,
-            Intent(context, MainActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val stopIntent = PendingIntent.getService(
-            context,
-            1,
-            Intent(context, RunForegroundService::class.java).apply {
-                action = RunForegroundService.ACTION_STOP_SESSION
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
         val statusLine = session.sessionStatusLabel.ifEmpty { session.intensityName }
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(context.getString(R.string.notification_run_title))
@@ -75,14 +63,66 @@ class RunNotificationHelper @Inject constructor(
                 ),
             )
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentIntent(openIntent)
+            .setContentIntent(openAppIntent())
             .setOngoing(true)
+            .setGroup(groupKey)
+            .setGroupSummary(true)
             .addAction(
                 R.drawable.ic_launcher_foreground,
                 context.getString(R.string.notification_stop),
-                stopIntent,
+                stopSessionIntent(),
             )
             .build()
+    }
+
+    fun buildChildNotification(
+        sessionId: String,
+        session: SessionUiState,
+        account: AccountRunUiState,
+    ): Notification {
+        val groupKey = groupKey(sessionId)
+        return NotificationCompat.Builder(context, CHANNEL_ID)
+            .setContentTitle(account.accountEmail)
+            .setContentText(
+                context.getString(
+                    R.string.notification_account_line,
+                    account.accountEmail,
+                    account.totalSteps,
+                    formatRemaining(session.remainingMillis),
+                ),
+            )
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentIntent(openAppIntent())
+            .setOngoing(account.status == RunStatus.RUNNING)
+            .setGroup(groupKey)
+            .setGroupSummary(false)
+            .build()
+    }
+
+    fun updateSessionNotifications(sessionId: String, state: RunSessionUiState) {
+        val timedState = state.withCurrentTiming()
+        notificationManager.notify(
+            SUMMARY_NOTIFICATION_ID,
+            buildSummaryNotification(sessionId, timedState),
+        )
+        timedState.accounts.forEach { account ->
+            val notificationId = childNotificationId(account.runId)
+            if (account.status == RunStatus.RUNNING) {
+                notificationManager.notify(
+                    notificationId,
+                    buildChildNotification(sessionId, timedState.session, account),
+                )
+            } else {
+                notificationManager.cancel(notificationId)
+            }
+        }
+    }
+
+    fun cancelSessionNotifications(runIds: List<String>) {
+        notificationManager.cancel(SUMMARY_NOTIFICATION_ID)
+        runIds.forEach { runId ->
+            notificationManager.cancel(childNotificationId(runId))
+        }
     }
 
     fun showError(message: String) {
@@ -91,8 +131,24 @@ class RunNotificationHelper @Inject constructor(
             .setContentText(message)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .build()
-        notificationManager.notify(NOTIFICATION_ID, notification)
+        notificationManager.notify(SUMMARY_NOTIFICATION_ID, notification)
     }
+
+    private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(
+        context,
+        0,
+        Intent(context, MainActivity::class.java),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    private fun stopSessionIntent(): PendingIntent = PendingIntent.getService(
+        context,
+        1,
+        Intent(context, RunForegroundService::class.java).apply {
+            action = RunForegroundService.ACTION_STOP_SESSION
+        },
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
 
     private fun formatRemaining(remainingMillis: Long): String {
         val minutes = TimeUnit.MILLISECONDS.toMinutes(remainingMillis)
@@ -102,6 +158,13 @@ class RunNotificationHelper @Inject constructor(
 
     companion object {
         const val CHANNEL_ID = "apbfit_run_channel"
-        const val NOTIFICATION_ID = 1001
+        const val SUMMARY_NOTIFICATION_ID = 1001
+
+        fun groupKey(sessionId: String): String = "apbfit_session_$sessionId"
+
+        fun childNotificationId(runId: String): Int =
+            CHILD_NOTIFICATION_ID_BASE + (runId.hashCode() and 0xFFFF)
+
+        private const val CHILD_NOTIFICATION_ID_BASE = 2000
     }
 }
