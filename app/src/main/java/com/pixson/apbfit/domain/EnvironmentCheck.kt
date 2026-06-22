@@ -16,3 +16,9 @@ data class EnvironmentCheck(
     val id: EnvironmentCheckId,
     val status: CheckStatus,
 )
+
+data class CompactEnvironmentState(
+    val battery: CheckStatus,
+    val fit: CheckStatus,
+    val notifications: CheckStatus,
+)

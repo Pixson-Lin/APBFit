@@ -35,8 +35,25 @@
     <string name="duration_hours_minutes">%1$d 小時 %2$d 分</string>
     <string name="duration_minutes_only">%1$d 分鐘</string>
     <string name="batch_size_label">批次量</string>
+    <string name="batch_size_label_value">批次量：%1$d 筆紀錄</string>
     <string name="batch_size_segments">%1$d 筆紀錄</string>
-    <string name="start_run">開始 Run</string>
+    <string name="start_run">RUN</string>
+
+    <string name="account_edit_title">帳號管理</string>
+    <string name="account_edit_subtitle">勾選要參與下一次 Run 的帳號</string>
+    <string name="account_edit_button">編輯</string>
+    <string name="account_edit_done">完成</string>
+    <string name="account_edit_remove">移除</string>
+    <string name="enabled_accounts_empty">尚未啟用任何帳號，請點「編輯」勾選。</string>
+    <string name="error_no_enabled_accounts">請至少啟用一個帳號。</string>
+    <string name="error_cannot_disable_last_account">至少需保留一個啟用帳號。</string>
+    <string name="start_run_blocked_session_active">已有 Run 進行中。</string>
+
+    <string name="env_icon_battery">電池</string>
+    <string name="env_icon_fit">Google Fit</string>
+    <string name="env_icon_notifications">通知</string>
+    <string name="env_status_pass">正常</string>
+    <string name="env_status_warn">需注意</string>
 
     <string name="active_run_intensity">強度：%1$s</string>
     <string name="active_run_elapsed">已進行：%1$s</string>
@@ -46,7 +63,8 @@
     <string name="active_run_status">狀態：%1$s</string>
     <string name="active_run_stop">停止</string>
     <string name="active_run_finished">Run 已結束，狀態：%1$s</string>
-    <string name="active_run_session_status">Session：%1$s</string>
+    <string name="active_run_finished_with_failures">Run 已結束（%1$d 個帳號失敗）</string>
+    <string name="active_run_session_status">狀態：%1$s</string>
     <string name="active_run_account_line">%1$s · %2$d 步 · %3$s</string>
     <string name="error_debug_requires_two_accounts">除錯多帳號 Run 需要至少兩個已登入帳號。</string>
 
@@ -66,6 +84,8 @@
     <string name="debug_test_injected_failure">測試注入失敗</string>
 
     <string name="history_empty">此帳號尚無 Run 紀錄。</string>
+    <string name="history_no_accounts">尚無已登入帳號。</string>
+    <string name="history_account_label">帳號</string>
     <string name="history_intensity">強度：%1$s</string>
     <string name="history_duration">時長：設定 %1$s · 實際 %2$s</string>
     <string name="history_steps">已寫入步數：%1$d</string>
@@ -87,9 +107,11 @@
     <string name="settings_account_section">帳號</string>
     <string name="settings_sign_out">登出目前帳號</string>
     <string name="settings_data_section">資料</string>
-    <string name="settings_clear_history">清除此帳號歷史紀錄</string>
+    <string name="settings_clear_history">清除歷史紀錄</string>
+    <string name="settings_clear_history_account_label">帳號</string>
     <string name="settings_clear_history_title">清除歷史紀錄？</string>
     <string name="settings_clear_history_message">將刪除此帳號的所有 Run 與紀錄明細，且無法復原。</string>
+    <string name="settings_clear_history_message_account">將刪除 %1$s 的所有 Run 與紀錄明細，且無法復原。</string>
     <string name="settings_clear_history_confirm">清除</string>
     <string name="settings_clear_history_cancel">取消</string>
     <string name="settings_recover_orphan">重設進行中紀錄</string>
@@ -144,4 +166,12 @@
     <string name="active_account_none">無</string>
     <string name="content_desc_start_run">開始 Run</string>
     <string name="content_desc_stop_run">停止 Run</string>
+    <string name="content_desc_intensity_dropdown">強度選擇</string>
+    <string name="content_desc_account_edit">編輯帳號</string>
+    <string name="content_desc_history_account_dropdown">歷史紀錄帳號選擇</string>
+    <string name="content_desc_settings_account_dropdown">清除歷史紀錄帳號選擇</string>
+    <string name="content_desc_env_icon">%1$s：%2$s</string>
+    <string name="content_desc_nav_home">返回首頁</string>
+    <string name="content_desc_nav_history">歷史紀錄</string>
+    <string name="content_desc_nav_settings">設定</string>
 </resources>

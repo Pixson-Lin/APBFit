@@ -21,9 +21,7 @@ class RunSessionStateHolder @Inject constructor() {
         durationMinutes: Int,
         accounts: List<AccountRunUiState>,
     ) {
-        val runningCount = accounts.count { it.status == RunStatus.RUNNING }
-        val totalCount = accounts.size
-        val statusLabel = if (totalCount > 0) "$runningCount/$totalCount 進行中" else ""
+        val statusLabel = SessionStatusLabels.sessionStatusLabel(isActive = true, accounts = accounts)
         _state.value = RunSessionUiState(
             session = SessionUiState(
                 sessionId = sessionId,
@@ -60,10 +58,11 @@ class RunSessionStateHolder @Inject constructor() {
                 account
             }
         }
-        val runningCount = updatedAccounts.count { it.status == RunStatus.RUNNING }
-        val totalCount = updatedAccounts.size
-        val statusLabel = if (totalCount > 0) "$runningCount/$totalCount 進行中" else ""
-        val sessionStillActive = runningCount > 0
+        val sessionStillActive = updatedAccounts.any { it.status == RunStatus.RUNNING }
+        val statusLabel = SessionStatusLabels.sessionStatusLabel(
+            isActive = sessionStillActive,
+            accounts = updatedAccounts,
+        )
         _state.value = RunSessionUiState(
             session = current.session.copy(
                 sessionStatusLabel = statusLabel,

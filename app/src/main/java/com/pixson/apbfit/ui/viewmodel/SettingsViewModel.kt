@@ -3,6 +3,7 @@ package com.pixson.apbfit.ui.viewmodel
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pixson.apbfit.data.prefs.HistoryAccountPrefs
 import com.pixson.apbfit.data.repository.AccountRepository
 import com.pixson.apbfit.data.repository.RunRepository
 import com.pixson.apbfit.domain.EnvironmentChecker
@@ -18,16 +19,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class SettingsAccountItem(
-    val id: String,
-    val email: String,
-    val isActive: Boolean,
-)
-
 data class SettingsUiState(
-    val activeAccountEmail: String? = null,
-    val accounts: List<SettingsAccountItem> = emptyList(),
-    val canSwitchAccount: Boolean = true,
+    val accounts: List<HistoryAccountOption> = emptyList(),
+    val selectedAccountId: String? = null,
+    val selectedAccountEmail: String = "",
     val showRecoverOrphanButton: Boolean = false,
     val statusMessage: String? = null,
     val showClearHistoryConfirm: Boolean = false,
@@ -39,9 +34,11 @@ class SettingsViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val runRepository: RunRepository,
     private val runSessionStateHolder: RunSessionStateHolder,
+    private val historyAccountPrefs: HistoryAccountPrefs,
     private val environmentChecker: EnvironmentChecker,
     private val uiStrings: UiStrings,
 ) : ViewModel() {
+    private val selectedAccountId = MutableStateFlow<String?>(null)
     private val statusMessage = MutableStateFlow<String?>(null)
     private val showClearHistoryConfirm = MutableStateFlow(false)
     private val showRecoverOrphanConfirm = MutableStateFlow(false)
@@ -49,37 +46,46 @@ class SettingsViewModel @Inject constructor(
 
     val uiState: StateFlow<SettingsUiState> = combine(
         combine(
-            accountRepository.activeAccount,
+            accountRepository.accountRevision,
+            selectedAccountId,
             runSessionStateHolder.state.map { it.session.isActive },
             orphanRunningCount,
-        ) { active, runActive, orphanCount -> Triple(active, runActive, orphanCount) },
+        ) { _, accountId, runActive, orphanCount ->
+            AccountSnapshot(accountId, runActive, orphanCount)
+        },
         combine(
             statusMessage,
             showClearHistoryConfirm,
             showRecoverOrphanConfirm,
         ) { status, showClearConfirm, showRecoverConfirm ->
-            Triple(status, showClearConfirm, showRecoverConfirm)
+            DialogSnapshot(status, showClearConfirm, showRecoverConfirm)
         },
-    ) { (active, runActive, orphanCount), (status, showClearConfirm, showRecoverConfirm) ->
-        val accounts = accountRepository.getKnownAccounts().map { account ->
-            SettingsAccountItem(
+    ) { accountSnapshot, dialogSnapshot ->
+        val accountOptions = accountRepository.getKnownAccounts().map { account ->
+            HistoryAccountOption(
                 id = account.id.orEmpty(),
                 email = account.email.orEmpty(),
-                isActive = account.id == active?.id,
             )
         }
+        val selectedEmail = accountOptions.firstOrNull { it.id == accountSnapshot.accountId }?.email.orEmpty()
         SettingsUiState(
-            activeAccountEmail = active?.email,
-            accounts = accounts,
-            canSwitchAccount = !runActive,
-            showRecoverOrphanButton = orphanCount > 0 && !runActive,
-            statusMessage = status,
-            showClearHistoryConfirm = showClearConfirm,
-            showRecoverOrphanConfirm = showRecoverConfirm,
+            accounts = accountOptions,
+            selectedAccountId = accountSnapshot.accountId,
+            selectedAccountEmail = selectedEmail,
+            showRecoverOrphanButton = accountSnapshot.orphanCount > 0 && !accountSnapshot.runActive,
+            statusMessage = dialogSnapshot.status,
+            showClearHistoryConfirm = dialogSnapshot.showClearConfirm,
+            showRecoverOrphanConfirm = dialogSnapshot.showRecoverConfirm,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
     init {
+        viewModelScope.launch {
+            resolveSelectedAccount()
+            accountRepository.accountRevision.collect {
+                resolveSelectedAccount()
+            }
+        }
         refreshOrphanState()
     }
 
@@ -91,6 +97,11 @@ class SettingsViewModel @Inject constructor(
                 runRepository.getAllActiveRuns().size
             }
         }
+    }
+
+    fun selectAccount(accountId: String) {
+        selectedAccountId.value = accountId
+        historyAccountPrefs.setSelectedAccountId(accountId)
     }
 
     fun launchAddAccount(launchIntent: (Intent) -> Unit) {
@@ -112,28 +123,6 @@ class SettingsViewModel @Inject constructor(
                 onSuccess = { uiStrings.addedAccount(it.email.orEmpty()) },
                 onFailure = { it.message ?: uiStrings.signInFailed },
             )
-        }
-    }
-
-    fun switchAccount(accountId: String) {
-        if (!uiState.value.canSwitchAccount) {
-            statusMessage.value = uiStrings.cannotSwitchDuringRun
-            return
-        }
-        viewModelScope.launch {
-            val result = accountRepository.switchAccount(accountId)
-            statusMessage.value = result.exceptionOrNull()?.message ?: uiStrings.switchedAccount
-        }
-    }
-
-    fun signOutCurrentAccount() {
-        if (!uiState.value.canSwitchAccount) {
-            statusMessage.value = uiStrings.cannotSignOutDuringRun
-            return
-        }
-        viewModelScope.launch {
-            accountRepository.signOutCurrentAccount()
-            statusMessage.value = uiStrings.signedOut
         }
     }
 
@@ -164,6 +153,10 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun requestClearHistoryConfirm() {
+        if (selectedAccountId.value == null) {
+            statusMessage.value = uiStrings.accountNotAvailable
+            return
+        }
         showClearHistoryConfirm.value = true
     }
 
@@ -173,7 +166,7 @@ class SettingsViewModel @Inject constructor(
 
     fun confirmClearHistory() {
         viewModelScope.launch {
-            val accountId = accountRepository.getActiveAccountId() ?: return@launch
+            val accountId = selectedAccountId.value ?: return@launch
             runRepository.clearForAccount(accountId)
             showClearHistoryConfirm.value = false
             statusMessage.value = uiStrings.historyCleared
@@ -187,4 +180,37 @@ class SettingsViewModel @Inject constructor(
     fun notificationSettingsIntent(): Intent = environmentChecker.notificationSettingsIntent()
 
     fun googleFitIntent(): Intent = environmentChecker.googleFitIntent()
+
+    private fun resolveSelectedAccount() {
+        val known = accountRepository.getKnownAccounts()
+        val knownIds = known.mapNotNull { it.id }.toSet()
+        val current = selectedAccountId.value
+        val saved = historyAccountPrefs.getSelectedAccountId()
+        val resolved = when {
+            current != null && current in knownIds -> current
+            saved != null && saved in knownIds -> saved
+            knownIds.isNotEmpty() -> knownIds.first()
+            else -> null
+        }
+        if (resolved != current) {
+            selectedAccountId.value = resolved
+        }
+        if (resolved != null) {
+            historyAccountPrefs.setSelectedAccountId(resolved)
+        } else {
+            historyAccountPrefs.clearSelectedAccountId()
+        }
+    }
+
+    private data class AccountSnapshot(
+        val accountId: String?,
+        val runActive: Boolean,
+        val orphanCount: Int,
+    )
+
+    private data class DialogSnapshot(
+        val status: String?,
+        val showClearConfirm: Boolean,
+        val showRecoverConfirm: Boolean,
+    )
 }

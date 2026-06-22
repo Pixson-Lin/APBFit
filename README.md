@@ -1,8 +1,8 @@
 # APBFit — Auto Personal Boost Fit
 
-> **Status:** Early development — public requirements and design docs are in place; Android implementation is in progress.
+> **Status:** v1.1 sideload release — concurrent multi-account runs, simplified Home UI, Traditional Chinese UI.
 
-[Software Requirements Specification](docs/APBFit_SRS_v1.0_public.md) · [Development Guide](docs/APBFit_Cursor_Prompt_public.md)
+[Software Requirements Specification (v1.1)](docs/APBFit_SRS_v1.1_public.md) · [SRS v1.0](docs/APBFit_SRS_v1.0_public.md) · [Development Guide](docs/APBFit_Cursor_Prompt_public.md)
 
 ---
 
@@ -17,6 +17,32 @@ The app provides a structured run-based workflow with full observability: config
 **APBFit** 是一款 Android 應用程式，代表已登入的 Google 帳號，將模擬的步行與跑步活動資料寫入 **Google Fit**。其目標是產生與讀取 Google Fit 資料的健身整合應用相容的步數紀錄。
 
 本 App 提供結構化的 Run 流程與完整可觀察性：可設定強度與時長、前景服務背景執行、含 segment 層級細節的 Run 歷史紀錄，以及可選填的下游應用驗證結果紀錄。
+
+---
+
+## Features (v1.1)
+
+- Concurrent multi-account Run Sessions (one shared config per session)
+- Simplified Home UI: RUN-first layout, intensity dropdown, sliders, enabled-account list
+- Account Edit sheet: enable/disable accounts, add/remove sign-in
+- Active Runs screen with per-account progress and session-level stop
+- Run configuration persistence (intensity, duration, batch size)
+- History account dropdown with last-selected persistence
+- Seven preset intensity levels with Traditional Chinese names
+- Grouped foreground notifications (summary + per-account children)
+- Orphan session recovery on cold launch; manual reset in Settings
+
+**繁體中文**
+
+- 多帳號並發 Run Session（同一組設定）
+- 簡化首頁：RUN 置頂、強度下拉、滑桿、已啟用帳號列表
+- 帳號管理：勾選參與 Run、新增／移除登入
+- 進行中畫面：各帳號進度 + Session 層級停止
+- Run 設定記憶（強度、時長、批次量）
+- 歷史紀錄帳號下拉與上次選取記憶
+- 七種強度預設（繁體中文）
+- 分組前景通知（摘要 + 各帳號）
+- 冷啟動孤兒 Session 自動恢復；設定頁可手動重設
 
 ---
 
@@ -123,15 +149,19 @@ FitWriter ──► GoogleFitWriter（HistoryClient.insertData）
 - Google Fit app installed on the device
 - A Google account with Google Fit permissions granted
 
-### Build (once source is available)
+### Build
 
 ```bash
 git clone https://github.com/Pixson-Lin/APBFit.git
 cd APBFit
-./gradlew assembleDebug
+./gradlew assembleRelease
 ```
 
+Debug builds: `./gradlew assembleDebug`
+
 Install the generated APK via sideloading. Google Play distribution is planned for a future release.
+
+Current release: **v1.1.20260621** (`versionCode` 26062101).
 
 **繁體中文**
 
@@ -174,8 +204,8 @@ cd APBFit
 
 | Version | Scope |
 |---------|-------|
+| **v1.1** | Sideload release — concurrent multi-account runs, simplified UI, config persistence, zh-TW UI |
 | **v1.0** | Sideload release — single-account runs, preset intensity levels, run history, result validation |
-| v1.1 | Concurrent multi-account runs |
 | v1.2 | Custom intensity parameters |
 | v1.3 | Google Play Store release |
 | v1.4 | Write path adaptability via `FitWriter` interface |
@@ -185,8 +215,8 @@ cd APBFit
 
 | 版本 | 範圍 |
 |------|------|
+| **v1.1** | 側載發布 — 多帳號並發 Run、簡化 UI、設定記憶、繁體中文介面 |
 | **v1.0** | 側載發布 — 單帳號 Run、預設強度、歷史紀錄、驗證結果紀錄 |
-| v1.1 | 多帳號並發 Run |
 | v1.2 | 自訂強度參數 |
 | v1.3 | Google Play 上架 |
 | v1.4 | 透過 `FitWriter` 介面支援寫入路徑替換 |

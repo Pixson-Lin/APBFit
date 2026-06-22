@@ -4,14 +4,16 @@ import android.content.Intent
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.pixson.apbfit.data.model.IntensityLevel
 import com.pixson.apbfit.data.model.RunAlreadyActiveException
 import com.pixson.apbfit.data.model.RunSessionConfig
+import com.pixson.apbfit.data.prefs.EnabledAccountsPrefs
+import com.pixson.apbfit.data.prefs.RunConfigPrefs
 import com.pixson.apbfit.data.repository.AccountRepository
 import com.pixson.apbfit.data.repository.RunRepository
 import com.pixson.apbfit.domain.CheckStatus
-import com.pixson.apbfit.domain.EnvironmentCheck
-import com.pixson.apbfit.domain.EnvironmentCheckId
+import com.pixson.apbfit.domain.CompactEnvironmentState
 import com.pixson.apbfit.domain.EnvironmentChecker
 import com.pixson.apbfit.domain.PreflightException
 import com.pixson.apbfit.domain.SessionPreflight
@@ -26,16 +28,20 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.roundToInt
 
 data class HomeUiState(
-    val activeAccountEmail: String? = null,
-    val activeAccountId: String? = null,
-    val knownAccounts: List<AccountSummary> = emptyList(),
-    val environmentChecks: List<EnvironmentCheck> = emptyList(),
+    val enabledAccounts: List<EnabledAccountSummary> = emptyList(),
+    val accountEditItems: List<AccountEditItem> = emptyList(),
+    val environmentIcons: CompactEnvironmentState = CompactEnvironmentState(
+        battery = CheckStatus.WARN,
+        fit = CheckStatus.WARN,
+        notifications = CheckStatus.WARN,
+    ),
     val selectedIntensity: IntensityLevel = IntensityLevel.BRISK_WALK,
     val durationMinutes: Int = HomeViewModel.DEFAULT_DURATION_MINUTES,
     val batchSize: Int = HomeViewModel.DEFAULT_BATCH_SIZE,
@@ -43,12 +49,20 @@ data class HomeUiState(
     val isBusy: Boolean = false,
     val canStartRun: Boolean = false,
     val startBlockedReason: String? = null,
+    val isSessionActive: Boolean = false,
+    val isConfigLocked: Boolean = false,
+    val showAccountEditSheet: Boolean = false,
 )
 
-data class AccountSummary(
+data class EnabledAccountSummary(
     val id: String,
     val email: String,
-    val isActive: Boolean,
+)
+
+data class AccountEditItem(
+    val id: String,
+    val email: String,
+    val isEnabled: Boolean,
 )
 
 @HiltViewModel
@@ -57,6 +71,8 @@ class HomeViewModel @Inject constructor(
     private val runRepository: RunRepository,
     private val runServiceStarter: RunServiceStarter,
     private val runSessionStateHolder: RunSessionStateHolder,
+    private val enabledAccountsPrefs: EnabledAccountsPrefs,
+    private val runConfigPrefs: RunConfigPrefs,
     private val fitWriter: FitWriter,
     private val segmentGenerator: SegmentGenerator,
     private val environmentChecker: EnvironmentChecker,
@@ -68,88 +84,151 @@ class HomeViewModel @Inject constructor(
     private val selectedIntensity = MutableStateFlow(IntensityLevel.BRISK_WALK)
     private val durationMinutes = MutableStateFlow(DEFAULT_DURATION_MINUTES)
     private val batchSize = MutableStateFlow(DEFAULT_BATCH_SIZE)
-    private val environmentChecks = MutableStateFlow<List<EnvironmentCheck>>(emptyList())
+    private val enabledAccountIds = MutableStateFlow(emptySet<String>())
+    private val showAccountEditSheet = MutableStateFlow(false)
+    private val environmentIcons = MutableStateFlow(
+        CompactEnvironmentState(
+            battery = CheckStatus.WARN,
+            fit = CheckStatus.WARN,
+            notifications = CheckStatus.WARN,
+        ),
+    )
 
     val uiState: StateFlow<HomeUiState> = combine(
         combine(
-            accountRepository.activeAccount,
+            accountRepository.accountRevision,
+            enabledAccountIds,
             statusMessage,
             isBusy,
-        ) { active, status, busy -> Triple(active, status, busy) },
+            showAccountEditSheet,
+        ) { _, enabledIds, status, busy, showSheet ->
+            AccountSnapshotPartial(enabledIds, status, busy, showSheet)
+        },
         combine(
+            environmentIcons,
             selectedIntensity,
             durationMinutes,
             batchSize,
-            environmentChecks,
-        ) { intensity, duration, batch, checks ->
-            ConfigSnapshot(intensity, duration, batch, checks)
+            runSessionStateHolder.state.map { it.session.isActive },
+        ) { envIcons, intensity, duration, batch, sessionActive ->
+            ConfigSnapshot(intensity, duration, batch, sessionActive, envIcons)
         },
-    ) { (active, status, busy), config ->
-        val known = accountRepository.getKnownAccounts().map { account ->
-            AccountSummary(
+    ) { accountPartial, config ->
+        val knownAccounts = accountRepository.getKnownAccounts()
+        val enabledSummaries = knownAccounts
+            .filter { it.id in accountPartial.enabledIds }
+            .map { EnabledAccountSummary(it.id.orEmpty(), it.email.orEmpty()) }
+        val editItems = knownAccounts.map { account ->
+            AccountEditItem(
                 id = account.id.orEmpty(),
                 email = account.email.orEmpty(),
-                isActive = account.id == active?.id,
+                isEnabled = account.id in accountPartial.enabledIds,
             )
         }
-        val envReady = isEnvironmentReadyForRun(config.checks)
+        val envReady = isEnvironmentReadyForRun(config.envIcons)
+        val canStart = enabledSummaries.isNotEmpty() &&
+            !accountPartial.busy &&
+            !config.sessionActive &&
+            envReady
         HomeUiState(
-            activeAccountEmail = active?.email,
-            activeAccountId = active?.id,
-            knownAccounts = known,
-            environmentChecks = config.checks,
+            enabledAccounts = enabledSummaries,
+            accountEditItems = editItems,
+            environmentIcons = config.envIcons,
             selectedIntensity = config.intensity,
             durationMinutes = config.duration,
             batchSize = config.batch,
-            statusMessage = status,
-            isBusy = busy,
-            canStartRun = active != null && !busy && envReady,
-            startBlockedReason = if (active != null && !envReady) {
-                uiStrings.get(com.pixson.apbfit.R.string.start_run_blocked)
-            } else {
-                null
+            statusMessage = accountPartial.status,
+            isBusy = accountPartial.busy,
+            canStartRun = canStart,
+            startBlockedReason = when {
+                config.sessionActive -> uiStrings.get(com.pixson.apbfit.R.string.start_run_blocked_session_active)
+                enabledSummaries.isEmpty() -> uiStrings.get(com.pixson.apbfit.R.string.error_no_enabled_accounts)
+                !envReady -> uiStrings.get(com.pixson.apbfit.R.string.start_run_blocked)
+                else -> null
             },
+            isSessionActive = config.sessionActive,
+            isConfigLocked = config.sessionActive,
+            showAccountEditSheet = accountPartial.showSheet,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
     init {
-        refreshEnvironmentChecks()
         viewModelScope.launch {
+            migrateEnabledAccountsIfNeeded()
+            enabledAccountIds.value = enabledAccountsPrefs.getEnabledAccountIds()
+            loadSavedRunConfig()
+            refreshEnvironmentChecks()
             recoverStaleRunIfNeeded(showMessage = false)
         }
     }
 
     fun refreshEnvironmentChecks() {
-        val account = accountRepository.activeAccount.value // StateFlow snapshot for checks
-        environmentChecks.value = environmentChecker.evaluate(
-            account = account,
+        environmentIcons.value = environmentChecker.evaluateCompact(
+            enabledAccounts = getEnabledAccountObjects(),
             fitnessOptions = accountRepository.fitnessOptions,
         )
     }
 
     fun setIntensity(level: IntensityLevel) {
+        if (uiState.value.isConfigLocked) return
         selectedIntensity.value = level
-    }
-
-    fun setDurationMinutes(minutes: Int) {
-        durationMinutes.value = minutes.coerceIn(MIN_DURATION_MINUTES, MAX_DURATION_MINUTES)
+        persistRunConfig()
     }
 
     fun snapDurationFromSlider(value: Float) {
+        if (uiState.value.isConfigLocked) return
         val snapped = ((value / DURATION_STEP_MINUTES).roundToInt() * DURATION_STEP_MINUTES)
             .coerceIn(MIN_DURATION_MINUTES, MAX_DURATION_MINUTES)
         durationMinutes.value = snapped
+        persistRunConfig()
     }
 
-    fun setBatchSize(size: Int) {
-        batchSize.value = size.coerceIn(MIN_BATCH_SIZE, MAX_BATCH_SIZE)
+    fun snapBatchFromSlider(value: Float) {
+        if (uiState.value.isConfigLocked) return
+        batchSize.value = value.roundToInt().coerceIn(MIN_BATCH_SIZE, MAX_BATCH_SIZE)
+        persistRunConfig()
     }
 
-    fun switchAccount(accountId: String) {
+    fun openAccountEditSheet() {
+        if (uiState.value.isConfigLocked) return
+        showAccountEditSheet.value = true
+    }
+
+    fun dismissAccountEditSheet() {
+        showAccountEditSheet.value = false
+    }
+
+    fun setAccountEnabled(accountId: String, enabled: Boolean) {
+        if (uiState.value.isConfigLocked) return
+        if (!enabled && accountId in enabledAccountIds.value && enabledAccountIds.value.size <= 1) {
+            statusMessage.value = uiStrings.get(com.pixson.apbfit.R.string.error_cannot_disable_last_account)
+            return
+        }
+        val updated = enabledAccountIds.value.toMutableSet()
+        if (enabled) {
+            updated.add(accountId)
+        } else {
+            updated.remove(accountId)
+        }
+        persistEnabledAccounts(updated)
+    }
+
+    fun signOutAccount(accountId: String) {
+        if (uiState.value.isSessionActive) {
+            statusMessage.value = uiStrings.cannotSignOutDuringRun
+            return
+        }
         viewModelScope.launch {
-            val result = accountRepository.switchAccount(accountId)
-            statusMessage.value = result.exceptionOrNull()?.message ?: uiStrings.switchedAccount
-            refreshEnvironmentChecks()
+            val result = accountRepository.signOutAccount(accountId)
+            result.onSuccess {
+                val updated = enabledAccountIds.value.toMutableSet()
+                updated.remove(accountId)
+                persistEnabledAccounts(updated)
+                statusMessage.value = uiStrings.signedOut
+                refreshEnvironmentChecks()
+            }.onFailure {
+                statusMessage.value = it.message ?: uiStrings.accountNotAvailable
+            }
         }
     }
 
@@ -170,10 +249,16 @@ class HomeViewModel @Inject constructor(
     fun onAddAccountResult(data: Intent?) {
         viewModelScope.launch {
             val result = accountRepository.handleSignInResult(data)
-            statusMessage.value = result.fold(
-                onSuccess = { uiStrings.addedAccount(it.email.orEmpty()) },
-                onFailure = { it.message ?: uiStrings.signInFailed },
-            )
+            result.onSuccess { account ->
+                account.id?.let { id ->
+                    val updated = enabledAccountIds.value.toMutableSet()
+                    updated.add(id)
+                    persistEnabledAccounts(updated)
+                }
+                statusMessage.value = uiStrings.addedAccount(account.email.orEmpty())
+            }.onFailure {
+                statusMessage.value = it.message ?: uiStrings.signInFailed
+            }
             refreshEnvironmentChecks()
         }
     }
@@ -182,16 +267,22 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             isBusy.value = true
             runCatching {
-                val account = accountRepository.requireActiveAccount()
-                Log.d(TAG, "Start session requested for account=${account.email}")
-                sessionPreflight.ensureAll(listOf(account)).getOrThrow()
+                val accounts = getEnabledAccountObjects()
+                if (accounts.isEmpty()) {
+                    throw IllegalStateException(
+                        uiStrings.get(com.pixson.apbfit.R.string.error_no_enabled_accounts),
+                    )
+                }
+                Log.d(TAG, "Start session requested for ${accounts.size} account(s)")
+                sessionPreflight.ensureAll(accounts).getOrThrow()
+                val accountIds = accounts.mapNotNull { it.id }
                 val result = runRepository.startSession(
                     RunSessionConfig(
                         durationMinutes = durationMinutes.value,
                         intensityLevel = selectedIntensity.value,
                         batchSize = batchSize.value,
                     ),
-                    listOf(account.id!!),
+                    accountIds,
                 )
                 Log.d(TAG, "Session rows created sessionId=${result.sessionId}, starting foreground service")
                 runServiceStarter.startSession(result.sessionId)
@@ -205,7 +296,6 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** DB says RUNNING but no in-memory active session → service died mid-run; finalize as STOPPED. */
     private suspend fun recoverStaleRunIfNeeded(showMessage: Boolean): Boolean {
         val dbActive = runRepository.getAllActiveRuns()
         if (dbActive.isEmpty()) return false
@@ -225,7 +315,16 @@ class HomeViewModel @Inject constructor(
 
     fun notificationSettingsIntent(): Intent = environmentChecker.notificationSettingsIntent()
 
-    fun getFitnessPermissionsIntent(): Intent = accountRepository.getFitnessPermissionsIntent()
+    fun onFitIconTap(
+        launchSignIn: (Intent) -> Unit,
+        launchExternal: (Intent) -> Unit,
+    ) {
+        if (!environmentChecker.isGoogleFitInstalled()) {
+            launchExternal(environmentChecker.googleFitIntent())
+        } else {
+            launchSignIn(accountRepository.getFitnessPermissionsIntent())
+        }
+    }
 
     fun onFitnessPermissionResult(data: Intent?) {
         viewModelScope.launch {
@@ -246,14 +345,21 @@ class HomeViewModel @Inject constructor(
     fun ensureDataSources() {
         viewModelScope.launch {
             isBusy.value = true
-            val account = runCatching { accountRepository.requireActiveAccount() }
-            val result = account.fold(
-                onSuccess = { fitWriter.ensureDataSources(it) },
-                onFailure = { Result.failure(it) },
-            )
+            val accounts = getEnabledAccountObjects()
+            if (accounts.isEmpty()) {
+                statusMessage.value = uiStrings.get(com.pixson.apbfit.R.string.error_no_enabled_accounts)
+                isBusy.value = false
+                return@launch
+            }
+            val result = sessionPreflight.ensureAll(accounts)
             statusMessage.value = result.fold(
                 onSuccess = { uiStrings.dataSourcesReady },
-                onFailure = { it.message ?: uiStrings.dataSourceSetupFailed },
+                onFailure = {
+                    when (it) {
+                        is PreflightException -> uiStrings.preflightFailed(it.accountEmail, it.message)
+                        else -> it.message ?: uiStrings.dataSourceSetupFailed
+                    }
+                },
             )
             isBusy.value = false
         }
@@ -262,17 +368,19 @@ class HomeViewModel @Inject constructor(
     fun writeTestBatch() {
         viewModelScope.launch {
             isBusy.value = true
-            val account = runCatching { accountRepository.requireActiveAccount() }
+            val account = getEnabledAccountObjects().firstOrNull()
+                ?: run {
+                    statusMessage.value = uiStrings.get(com.pixson.apbfit.R.string.error_no_enabled_accounts)
+                    isBusy.value = false
+                    return@launch
+                }
             val now = System.currentTimeMillis()
             val segment = segmentGenerator.generate(
                 index = 0,
                 startMillis = now - 30_000L,
                 level = IntensityLevel.BRISK_WALK,
             )
-            val result = account.fold(
-                onSuccess = { fitWriter.writeSegments(it, listOf(segment)) },
-                onFailure = { Result.failure(it) },
-            )
+            val result = fitWriter.writeSegments(account, listOf(segment))
             statusMessage.value = result.fold(
                 onSuccess = { uiStrings.testBatchWritten(segment.steps) },
                 onFailure = { it.message ?: uiStrings.writeFailed },
@@ -342,16 +450,18 @@ class HomeViewModel @Inject constructor(
     fun testInjectedFailure() {
         viewModelScope.launch {
             isBusy.value = true
-            val account = runCatching { accountRepository.requireActiveAccount() }
+            val account = getEnabledAccountObjects().firstOrNull()
+            if (account == null) {
+                statusMessage.value = uiStrings.get(com.pixson.apbfit.R.string.error_no_enabled_accounts)
+                isBusy.value = false
+                return@launch
+            }
             val segment = segmentGenerator.generate(
                 index = 0,
                 startMillis = System.currentTimeMillis() - 30_000L,
                 level = IntensityLevel.JOG,
             )
-            val result = account.fold(
-                onSuccess = { FailingFitWriter().writeSegments(it, listOf(segment)) },
-                onFailure = { Result.failure(it) },
-            )
+            val result = FailingFitWriter().writeSegments(account, listOf(segment))
             statusMessage.value = result.fold(
                 onSuccess = { uiStrings.unexpectedSuccess },
                 onFailure = { uiStrings.injectedFailure(it.message) },
@@ -360,19 +470,60 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun isEnvironmentReadyForRun(checks: List<EnvironmentCheck>): Boolean {
-        val required = setOf(
-            EnvironmentCheckId.GOOGLE_FIT_INSTALLED,
-            EnvironmentCheckId.FITNESS_PERMISSIONS,
+    private fun persistRunConfig() {
+        runConfigPrefs.save(
+            RunConfigPrefs.SavedRunConfig(
+                intensityLevel = selectedIntensity.value,
+                durationMinutes = durationMinutes.value,
+                batchSize = batchSize.value,
+            ),
         )
-        return checks.filter { it.id in required }.all { it.status == CheckStatus.PASS }
     }
+
+    private fun loadSavedRunConfig() {
+        val saved = runConfigPrefs.load() ?: return
+        selectedIntensity.value = saved.intensityLevel
+        durationMinutes.value = saved.durationMinutes.coerceIn(MIN_DURATION_MINUTES, MAX_DURATION_MINUTES)
+        batchSize.value = saved.batchSize.coerceIn(MIN_BATCH_SIZE, MAX_BATCH_SIZE)
+    }
+
+    private fun migrateEnabledAccountsIfNeeded() {
+        if (enabledAccountsPrefs.getEnabledAccountIds().isEmpty()) {
+            val allIds = accountRepository.getKnownAccounts().mapNotNull { it.id }.toSet()
+            if (allIds.isNotEmpty()) {
+                enabledAccountsPrefs.setEnabledAccountIds(allIds)
+            }
+        }
+    }
+
+    private fun persistEnabledAccounts(ids: Set<String>) {
+        enabledAccountIds.value = ids
+        enabledAccountsPrefs.setEnabledAccountIds(ids)
+        refreshEnvironmentChecks()
+    }
+
+    private fun getEnabledAccountObjects(): List<GoogleSignInAccount> {
+        val enabledIds = enabledAccountIds.value
+        return accountRepository.getKnownAccounts().filter { it.id in enabledIds }
+    }
+
+    private fun isEnvironmentReadyForRun(icons: CompactEnvironmentState): Boolean {
+        return icons.fit == CheckStatus.PASS
+    }
+
+    private data class AccountSnapshotPartial(
+        val enabledIds: Set<String>,
+        val status: String?,
+        val busy: Boolean,
+        val showSheet: Boolean,
+    )
 
     private data class ConfigSnapshot(
         val intensity: IntensityLevel,
         val duration: Int,
         val batch: Int,
-        val checks: List<EnvironmentCheck>,
+        val sessionActive: Boolean,
+        val envIcons: CompactEnvironmentState,
     )
 
     companion object {

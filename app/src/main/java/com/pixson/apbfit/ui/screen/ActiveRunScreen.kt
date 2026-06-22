@@ -2,6 +2,7 @@ package com.pixson.apbfit.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -12,8 +13,10 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -31,6 +34,9 @@ import java.util.concurrent.TimeUnit
 
 @Composable
 fun ActiveRunScreen(
+    onNavigateToHistory: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToHome: () -> Unit = {},
     viewModel: ActiveRunViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -44,10 +50,42 @@ fun ActiveRunScreen(
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(
-            text = stringResource(R.string.nav_active_run),
-            style = MaterialTheme.typography.headlineSmall,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.nav_active_run),
+                style = MaterialTheme.typography.headlineSmall,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(
+                    onClick = onNavigateToHome,
+                    modifier = Modifier.semantics {
+                        contentDescription = context.getString(R.string.content_desc_nav_home)
+                    },
+                ) {
+                    Text(stringResource(R.string.nav_home))
+                }
+                TextButton(
+                    onClick = onNavigateToHistory,
+                    modifier = Modifier.semantics {
+                        contentDescription = context.getString(R.string.content_desc_nav_history)
+                    },
+                ) {
+                    Text(stringResource(R.string.nav_history))
+                }
+                TextButton(
+                    onClick = onNavigateToSettings,
+                    modifier = Modifier.semantics {
+                        contentDescription = context.getString(R.string.content_desc_nav_settings)
+                    },
+                ) {
+                    Text(stringResource(R.string.nav_settings))
+                }
+            }
+        }
 
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -94,11 +132,14 @@ fun ActiveRunScreen(
                 Text(stringResource(R.string.active_run_stop))
             }
         } else if (state.accounts.isNotEmpty()) {
-            Text(
-                text = stringResource(
+            val finishedLabel = session.sessionStatusLabel.ifEmpty {
+                stringResource(
                     R.string.active_run_finished,
                     stringResource(RunStatus.COMPLETED.labelRes()),
-                ),
+                )
+            }
+            Text(
+                text = finishedLabel,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

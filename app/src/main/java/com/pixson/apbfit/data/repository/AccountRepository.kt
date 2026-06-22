@@ -33,6 +33,9 @@ class AccountRepository @Inject constructor(
     private val _activeAccount = MutableStateFlow<GoogleSignInAccount?>(null)
     val activeAccount: StateFlow<GoogleSignInAccount?> = _activeAccount.asStateFlow()
 
+    private val _accountRevision = MutableStateFlow(0)
+    val accountRevision: StateFlow<Int> = _accountRevision.asStateFlow()
+
     val fitnessOptions: FitnessOptions = FitnessOptions.builder()
         .addDataType(DataType.TYPE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_WRITE)
         .addDataType(DataType.TYPE_DISTANCE_DELTA, FitnessOptions.ACCESS_WRITE)
@@ -86,6 +89,7 @@ class AccountRepository @Inject constructor(
             accountPrefs.addKnownAccountId(account.id!!)
             accountPrefs.setActiveAccountId(account.id!!)
             _activeAccount.value = account
+            bumpAccounts()
             account
         }.onFailure { error ->
             Log.e(TAG, "handleSignInResult failed: ${error.message}", error)
@@ -98,6 +102,30 @@ class AccountRepository @Inject constructor(
                 ?: throw IllegalStateException("Account is not available. Sign in again.")
             accountPrefs.setActiveAccountId(accountId)
             _activeAccount.value = account
+            bumpAccounts()
+        }
+    }
+
+    suspend fun signOutAccount(accountId: String): Result<Unit> = mutex.withLock {
+        runCatching {
+            if (accountId !in accountPrefs.getKnownAccountIds()) {
+                throw IllegalStateException("Account is not available. Sign in again.")
+            }
+            accountCache.remove(accountId)
+            accountPrefs.removeKnownAccountId(accountId)
+            val activeId = accountPrefs.getActiveAccountId()
+            if (activeId == accountId) {
+                val remaining = accountPrefs.getKnownAccountIds().firstOrNull()
+                if (remaining != null) {
+                    accountPrefs.setActiveAccountId(remaining)
+                    _activeAccount.value = accountCache[remaining]
+                } else {
+                    accountPrefs.clearActiveAccountId()
+                    _activeAccount.value = null
+                    awaitGoogleSignOut()
+                }
+            }
+            bumpAccounts()
         }
     }
 
@@ -111,6 +139,7 @@ class AccountRepository @Inject constructor(
             }
             accountPrefs.clearActiveAccountId()
             _activeAccount.value = null
+            bumpAccounts()
         }
     }
 
@@ -155,7 +184,12 @@ class AccountRepository @Inject constructor(
             val activeId = accountPrefs.getActiveAccountId() ?: lastSignedIn.id!!
             accountPrefs.setActiveAccountId(activeId)
             _activeAccount.value = accountCache[activeId] ?: lastSignedIn
+            bumpAccounts()
         }
+    }
+
+    private fun bumpAccounts() {
+        _accountRevision.value++
     }
 
     private fun cacheAccount(account: GoogleSignInAccount) {

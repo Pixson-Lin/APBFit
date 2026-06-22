@@ -4,33 +4,45 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -41,10 +53,11 @@ import com.pixson.apbfit.BuildConfig
 import com.pixson.apbfit.R
 import com.pixson.apbfit.data.model.IntensityLevel
 import com.pixson.apbfit.domain.CheckStatus
-import com.pixson.apbfit.domain.EnvironmentCheckId
+import com.pixson.apbfit.domain.CompactEnvironmentState
+import com.pixson.apbfit.ui.viewmodel.EnabledAccountSummary
 import com.pixson.apbfit.ui.viewmodel.HomeViewModel
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onNavigateToHistory: () -> Unit,
@@ -89,6 +102,19 @@ fun HomeScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    if (uiState.showAccountEditSheet) {
+        AccountEditSheet(
+            accounts = uiState.accountEditItems,
+            enabledAccountCount = uiState.enabledAccounts.size,
+            onDismiss = viewModel::dismissAccountEditSheet,
+            onToggleEnabled = viewModel::setAccountEnabled,
+            onSignOut = viewModel::signOutAccount,
+            onAddAccount = {
+                viewModel.launchAddAccount { intent -> addAccountLauncher.launch(intent) }
+            },
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -96,66 +122,9 @@ fun HomeScreen(
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(R.string.nav_home),
-                style = MaterialTheme.typography.headlineSmall,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = onNavigateToHistory) {
-                    Text(stringResource(R.string.nav_history))
-                }
-                TextButton(onClick = onNavigateToSettings) {
-                    Text(stringResource(R.string.nav_settings))
-                }
-            }
-        }
-
-        AccountSection(
-            activeAccountEmail = uiState.activeAccountEmail,
-            knownAccounts = uiState.knownAccounts,
-            onSwitchAccount = viewModel::switchAccount,
-            onAddAccount = {
-                viewModel.launchAddAccount { intent -> addAccountLauncher.launch(intent) }
-            },
-        )
-
-        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
-        EnvironmentSection(
-            checks = uiState.environmentChecks,
-            onFixCheck = { checkId ->
-                when (checkId) {
-                    EnvironmentCheckId.BATTERY_OPTIMIZATION ->
-                        settingsLauncher.launch(viewModel.batteryOptimizationIntent())
-                    EnvironmentCheckId.GOOGLE_FIT_INSTALLED ->
-                        settingsLauncher.launch(viewModel.googleFitIntent())
-                    EnvironmentCheckId.FITNESS_PERMISSIONS ->
-                        fitnessPermissionLauncher.launch(viewModel.getFitnessPermissionsIntent())
-                    EnvironmentCheckId.NOTIFICATIONS -> {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        } else {
-                            settingsLauncher.launch(viewModel.notificationSettingsIntent())
-                        }
-                    }
-                }
-            },
-        )
-
-        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
-        RunConfigSection(
-            selectedIntensity = uiState.selectedIntensity,
-            durationMinutes = uiState.durationMinutes,
-            batchSize = uiState.batchSize,
-            onIntensitySelected = viewModel::setIntensity,
-            onDurationChanged = viewModel::snapDurationFromSlider,
-            onBatchSizeSelected = viewModel::setBatchSize,
+        HomeTopBar(
+            onNavigateToHistory = onNavigateToHistory,
+            onNavigateToSettings = onNavigateToSettings,
         )
 
         Button(
@@ -177,6 +146,44 @@ fun HomeScreen(
                 color = MaterialTheme.colorScheme.tertiary,
             )
         }
+
+        RunConfigSection(
+            selectedIntensity = uiState.selectedIntensity,
+            durationMinutes = uiState.durationMinutes,
+            batchSize = uiState.batchSize,
+            configLocked = uiState.isConfigLocked,
+            onIntensitySelected = viewModel::setIntensity,
+            onDurationChanged = viewModel::snapDurationFromSlider,
+            onBatchChanged = viewModel::snapBatchFromSlider,
+        )
+
+        EnabledAccountsSection(
+            enabledAccounts = uiState.enabledAccounts,
+            configLocked = uiState.isConfigLocked,
+            onEditAccounts = viewModel::openAccountEditSheet,
+        )
+
+        EnvironmentIconRow(
+            icons = uiState.environmentIcons,
+            onBatteryTap = {
+                settingsLauncher.launch(viewModel.batteryOptimizationIntent())
+            },
+            onFitTap = {
+                if (uiState.environmentIcons.fit == CheckStatus.WARN) {
+                    viewModel.onFitIconTap(
+                        launchSignIn = { intent -> fitnessPermissionLauncher.launch(intent) },
+                        launchExternal = { intent -> settingsLauncher.launch(intent) },
+                    )
+                }
+            },
+            onNotificationsTap = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    settingsLauncher.launch(viewModel.notificationSettingsIntent())
+                }
+            },
+        )
 
         if (BuildConfig.DEBUG) {
             DebugPanel(
@@ -200,149 +207,78 @@ fun HomeScreen(
 }
 
 @Composable
-private fun AccountSection(
-    activeAccountEmail: String?,
-    knownAccounts: List<com.pixson.apbfit.ui.viewmodel.AccountSummary>,
-    onSwitchAccount: (String) -> Unit,
-    onAddAccount: () -> Unit,
+private fun HomeTopBar(
+    onNavigateToHistory: () -> Unit,
+    onNavigateToSettings: () -> Unit,
 ) {
-    Text(
-        text = stringResource(R.string.account_section_title),
-        style = MaterialTheme.typography.titleMedium,
-    )
-    val accountLabel = activeAccountEmail ?: stringResource(R.string.active_account_none)
-    Text(text = stringResource(R.string.active_account_label, accountLabel))
-    knownAccounts.forEach { account ->
-        OutlinedButton(
-            onClick = { onSwitchAccount(account.id) },
-            enabled = !account.isActive,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                text = if (account.isActive) {
-                    stringResource(R.string.account_active, account.email)
-                } else {
-                    account.email
-                },
-            )
-        }
-    }
-    Button(
-        onClick = onAddAccount,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Text(stringResource(R.string.add_google_account))
-    }
-}
-
-@Composable
-private fun EnvironmentSection(
-    checks: List<com.pixson.apbfit.domain.EnvironmentCheck>,
-    onFixCheck: (EnvironmentCheckId) -> Unit,
-) {
-    Text(
-        text = stringResource(R.string.environment_section_title),
-        style = MaterialTheme.typography.titleMedium,
-    )
-    val hasWarnings = checks.any { it.status == CheckStatus.WARN }
-    Text(
-        text = stringResource(
-            if (hasWarnings) R.string.environment_warnings else R.string.environment_all_pass,
-        ),
-        style = MaterialTheme.typography.bodySmall,
-        color = if (hasWarnings) {
-            MaterialTheme.colorScheme.tertiary
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
-    )
-    checks.forEach { check ->
-        EnvironmentCheckRow(
-            checkId = check.id,
-            status = check.status,
-            onFix = { onFixCheck(check.id) },
-        )
-    }
-}
-
-@Composable
-private fun EnvironmentCheckRow(
-    checkId: EnvironmentCheckId,
-    status: CheckStatus,
-    onFix: () -> Unit,
-) {
-    val label = when (checkId) {
-        EnvironmentCheckId.BATTERY_OPTIMIZATION ->
-            stringResource(R.string.check_battery_optimization)
-        EnvironmentCheckId.GOOGLE_FIT_INSTALLED ->
-            stringResource(R.string.check_google_fit_installed)
-        EnvironmentCheckId.FITNESS_PERMISSIONS ->
-            stringResource(R.string.check_fitness_permissions)
-        EnvironmentCheckId.NOTIFICATIONS ->
-            stringResource(R.string.check_notifications)
-    }
-    val statusLabel = if (status == CheckStatus.PASS) {
-        stringResource(R.string.check_pass)
-    } else {
-        stringResource(R.string.check_warn)
-    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium)
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = statusLabel,
-                style = MaterialTheme.typography.labelMedium,
-                color = if (status == CheckStatus.PASS) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.tertiary
-                },
-            )
-            if (status == CheckStatus.WARN) {
-                TextButton(onClick = onFix) {
-                    Text(stringResource(R.string.check_fix))
-                }
+        Text(
+            text = stringResource(R.string.nav_home),
+            style = MaterialTheme.typography.headlineSmall,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = onNavigateToHistory) {
+                Text(stringResource(R.string.nav_history))
+            }
+            TextButton(onClick = onNavigateToSettings) {
+                Text(stringResource(R.string.nav_settings))
             }
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RunConfigSection(
     selectedIntensity: IntensityLevel,
     durationMinutes: Int,
     batchSize: Int,
+    configLocked: Boolean,
     onIntensitySelected: (IntensityLevel) -> Unit,
     onDurationChanged: (Float) -> Unit,
-    onBatchSizeSelected: (Int) -> Unit,
+    onBatchChanged: (Float) -> Unit,
 ) {
-    Text(
-        text = stringResource(R.string.run_config_section_title),
-        style = MaterialTheme.typography.titleMedium,
-    )
+    val context = LocalContext.current
+    var intensityExpanded by remember { mutableStateOf(false) }
 
     Text(
         text = stringResource(R.string.intensity_label),
         style = MaterialTheme.typography.labelLarge,
     )
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ExposedDropdownMenuBox(
+        expanded = intensityExpanded,
+        onExpandedChange = { if (!configLocked) intensityExpanded = it },
     ) {
-        IntensityLevel.entries.forEach { level ->
-            FilterChip(
-                selected = selectedIntensity == level,
-                onClick = { onIntensitySelected(level) },
-                label = { Text(level.displayName) },
-            )
+        TextField(
+            value = selectedIntensity.displayName,
+            onValueChange = {},
+            readOnly = true,
+            enabled = !configLocked,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = intensityExpanded) },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth()
+                .semantics {
+                    contentDescription = context.getString(R.string.content_desc_intensity_dropdown)
+                },
+        )
+        ExposedDropdownMenu(
+            expanded = intensityExpanded,
+            onDismissRequest = { intensityExpanded = false },
+        ) {
+            IntensityLevel.entries.forEach { level ->
+                DropdownMenuItem(
+                    text = { Text(level.displayName) },
+                    onClick = {
+                        onIntensitySelected(level)
+                        intensityExpanded = false
+                    },
+                )
+            }
         }
     }
     Text(
@@ -364,6 +300,7 @@ private fun RunConfigSection(
     Slider(
         value = durationMinutes.toFloat(),
         onValueChange = onDurationChanged,
+        enabled = !configLocked,
         valueRange = HomeViewModel.MIN_DURATION_MINUTES.toFloat()..HomeViewModel.MAX_DURATION_MINUTES.toFloat(),
         steps = ((HomeViewModel.MAX_DURATION_MINUTES - HomeViewModel.MIN_DURATION_MINUTES) /
             HomeViewModel.DURATION_STEP_MINUTES) - 1,
@@ -371,21 +308,132 @@ private fun RunConfigSection(
     )
 
     Text(
-        text = stringResource(R.string.batch_size_label),
+        text = stringResource(R.string.batch_size_label_value, batchSize),
         style = MaterialTheme.typography.labelLarge,
         modifier = Modifier.padding(top = 8.dp),
     )
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+    Slider(
+        value = batchSize.toFloat(),
+        onValueChange = onBatchChanged,
+        enabled = !configLocked,
+        valueRange = HomeViewModel.MIN_BATCH_SIZE.toFloat()..HomeViewModel.MAX_BATCH_SIZE.toFloat(),
+        steps = HomeViewModel.MAX_BATCH_SIZE - HomeViewModel.MIN_BATCH_SIZE - 1,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun EnabledAccountsSection(
+    enabledAccounts: List<EnabledAccountSummary>,
+    configLocked: Boolean,
+    onEditAccounts: () -> Unit,
+) {
+    val context = LocalContext.current
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        for (size in HomeViewModel.MIN_BATCH_SIZE..HomeViewModel.MAX_BATCH_SIZE) {
-            FilterChip(
-                selected = batchSize == size,
-                onClick = { onBatchSizeSelected(size) },
-                label = { Text(stringResource(R.string.batch_size_segments, size)) },
+        Text(
+            text = stringResource(R.string.account_section_title),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        TextButton(
+            onClick = onEditAccounts,
+            enabled = !configLocked,
+            modifier = Modifier.semantics {
+                contentDescription = context.getString(R.string.content_desc_account_edit)
+            },
+        ) {
+            Text(stringResource(R.string.account_edit_button))
+        }
+    }
+    if (enabledAccounts.isEmpty()) {
+        Text(
+            text = stringResource(R.string.enabled_accounts_empty),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    } else {
+        enabledAccounts.forEach { account ->
+            Text(
+                text = account.email,
+                style = MaterialTheme.typography.bodyMedium,
             )
         }
+    }
+}
+
+@Composable
+private fun EnvironmentIconRow(
+    icons: CompactEnvironmentState,
+    onBatteryTap: () -> Unit,
+    onFitTap: () -> Unit,
+    onNotificationsTap: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        EnvironmentIcon(
+            label = stringResource(R.string.env_icon_battery),
+            status = icons.battery,
+            onClick = onBatteryTap,
+        )
+        EnvironmentIcon(
+            label = stringResource(R.string.env_icon_fit),
+            status = icons.fit,
+            onClick = onFitTap,
+        )
+        EnvironmentIcon(
+            label = stringResource(R.string.env_icon_notifications),
+            status = icons.notifications,
+            onClick = onNotificationsTap,
+        )
+    }
+}
+
+@Composable
+private fun EnvironmentIcon(
+    label: String,
+    status: CheckStatus,
+    onClick: () -> Unit,
+) {
+    val context = LocalContext.current
+    val indicatorColor = if (status == CheckStatus.PASS) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.tertiary
+    }
+    val statusLabel = stringResource(
+        if (status == CheckStatus.PASS) R.string.env_status_pass else R.string.env_status_warn,
+    )
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(MaterialTheme.shapes.small)
+            .clickable(onClick = onClick)
+            .padding(8.dp)
+            .semantics {
+                contentDescription = context.getString(
+                    R.string.content_desc_env_icon,
+                    label,
+                    statusLabel,
+                )
+            },
+    ) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(indicatorColor),
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 4.dp),
+        )
     }
 }
 

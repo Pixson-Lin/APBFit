@@ -18,6 +18,13 @@ fun runStatusLabelRes(statusName: String): Int = runCatching {
 }.getOrDefault(R.string.run_status_unknown)
 
 @StringRes
+fun validationResultLabelRes(resultName: String): Int = when (resultName) {
+    "ACCEPTED" -> R.string.validation_accepted
+    "REJECTED" -> R.string.validation_rejected
+    else -> R.string.run_status_unknown
+}
+
+@StringRes
 fun segmentStatusLabelRes(success: Boolean): Int = if (success) {
     R.string.segment_status_success
 } else {

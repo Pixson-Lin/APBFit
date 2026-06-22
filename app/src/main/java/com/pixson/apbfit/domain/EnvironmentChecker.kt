@@ -31,7 +31,7 @@ class EnvironmentChecker @Inject constructor(
         ),
         EnvironmentCheck(
             id = EnvironmentCheckId.GOOGLE_FIT_INSTALLED,
-            status = if (isGoogleFitInstalled()) CheckStatus.PASS else CheckStatus.WARN,
+            status = if (isGoogleFitInstalledInternal()) CheckStatus.PASS else CheckStatus.WARN,
         ),
         EnvironmentCheck(
             id = EnvironmentCheckId.FITNESS_PERMISSIONS,
@@ -47,6 +47,20 @@ class EnvironmentChecker @Inject constructor(
         ),
     )
 
+    fun evaluateCompact(
+        enabledAccounts: List<GoogleSignInAccount>,
+        fitnessOptions: FitnessOptions,
+    ): CompactEnvironmentState {
+        val fitPass = isGoogleFitInstalledInternal() &&
+            enabledAccounts.isNotEmpty() &&
+            enabledAccounts.all { GoogleSignIn.hasPermissions(it, fitnessOptions) }
+        return CompactEnvironmentState(
+            battery = if (isBatteryOptimizationDisabled()) CheckStatus.PASS else CheckStatus.WARN,
+            fit = if (fitPass) CheckStatus.PASS else CheckStatus.WARN,
+            notifications = if (areNotificationsEnabled()) CheckStatus.PASS else CheckStatus.WARN,
+        )
+    }
+
     fun batteryOptimizationIntent(): Intent =
         Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
             data = Uri.parse("package:$packageName")
@@ -56,6 +70,8 @@ class EnvironmentChecker @Inject constructor(
         Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$GOOGLE_FIT_PACKAGE")).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
+
+    fun isGoogleFitInstalled(): Boolean = isGoogleFitInstalledInternal()
 
     fun notificationSettingsIntent(): Intent =
         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
@@ -74,7 +90,7 @@ class EnvironmentChecker @Inject constructor(
         return powerManager.isIgnoringBatteryOptimizations(packageName)
     }
 
-    private fun isGoogleFitInstalled(): Boolean {
+    private fun isGoogleFitInstalledInternal(): Boolean {
         val packageManager = context.packageManager
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

@@ -32,13 +32,10 @@ data class RunSessionUiState(
         val now = System.currentTimeMillis()
         val elapsed = (now - sessionState.startTimeMillis).coerceAtLeast(0L)
         val remaining = (sessionState.durationMinutes * 60_000L - elapsed).coerceAtLeast(0L)
-        val runningCount = accounts.count { it.status == RunStatus.RUNNING }
-        val totalCount = accounts.size
-        val statusLabel = if (totalCount > 0) {
-            "$runningCount/$totalCount 進行中"
-        } else {
-            ""
-        }
+        val statusLabel = SessionStatusLabels.sessionStatusLabel(
+            isActive = true,
+            accounts = accounts,
+        )
         return copy(
             session = sessionState.copy(
                 elapsedMillis = elapsed,

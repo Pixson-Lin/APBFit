@@ -31,9 +31,14 @@ class SignInViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = SignInUiState(isLoading = true)
             val result = accountRepository.handleSignInResult(data)
-            _uiState.value = SignInUiState(
-                isLoading = false,
-                errorMessage = result.exceptionOrNull()?.message ?: uiStrings.signInFailed,
+            _uiState.value = result.fold(
+                onSuccess = { SignInUiState(isLoading = false) },
+                onFailure = {
+                    SignInUiState(
+                        isLoading = false,
+                        errorMessage = it.message ?: uiStrings.signInFailed,
+                    )
+                },
             )
         }
     }

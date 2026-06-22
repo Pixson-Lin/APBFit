@@ -3,6 +3,9 @@ package com.pixson.apbfit.ui.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -22,25 +25,40 @@ fun ApbFitNavHost(
     modifier: Modifier = Modifier,
     rootViewModel: RootViewModel = hiltViewModel(),
 ) {
-    val activeAccount by rootViewModel.accountRepository.activeAccount.collectAsStateWithLifecycle()
+    val accountRevision by rootViewModel.accountRepository.accountRevision.collectAsStateWithLifecycle()
     val sessionState by rootViewModel.runSessionStateHolder.state.collectAsStateWithLifecycle()
+    val hasAccounts = remember(accountRevision) {
+        rootViewModel.accountRepository.getKnownAccounts().isNotEmpty()
+    }
+    var wasSessionActive by remember { mutableStateOf(false) }
 
-    LaunchedEffect(activeAccount, sessionState.session.isActive) {
-        val destination = when {
-            activeAccount == null -> Routes.SIGN_IN
-            sessionState.session.isActive -> Routes.ACTIVE_RUN
-            else -> Routes.HOME
-        }
-        android.util.Log.d(
-            "APBFit_Run",
-            "Nav gate: destination=$destination isActive=${sessionState.session.isActive} sessionId=${sessionState.session.sessionId}",
-        )
-        if (navController.currentDestination?.route != destination) {
-            navController.navigate(destination) {
-                popUpTo(0) { inclusive = true }
+    LaunchedEffect(hasAccounts) {
+        if (!hasAccounts) {
+            if (navController.currentDestination?.route != Routes.SIGN_IN) {
+                navController.navigate(Routes.SIGN_IN) {
+                    popUpTo(0) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        } else if (navController.currentDestination?.route == Routes.SIGN_IN) {
+            navController.navigate(Routes.HOME) {
+                popUpTo(Routes.SIGN_IN) { inclusive = true }
                 launchSingleTop = true
             }
         }
+    }
+
+    LaunchedEffect(sessionState.session.isActive) {
+        if (sessionState.session.isActive && !wasSessionActive) {
+            android.util.Log.d(
+                "APBFit_Run",
+                "Nav: session started, pushing ActiveRuns sessionId=${sessionState.session.sessionId}",
+            )
+            navController.navigate(Routes.ACTIVE_RUN) {
+                launchSingleTop = true
+            }
+        }
+        wasSessionActive = sessionState.session.isActive
     }
 
     NavHost(
@@ -55,7 +73,17 @@ fun ApbFitNavHost(
                 onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }
-        composable(Routes.ACTIVE_RUN) { ActiveRunScreen() }
+        composable(Routes.ACTIVE_RUN) {
+            ActiveRunScreen(
+                onNavigateToHistory = { navController.navigate(Routes.HISTORY) },
+                onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+                onNavigateToHome = {
+                    navController.navigate(Routes.HOME) {
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
         composable(Routes.HISTORY) {
             HistoryScreen(onNavigateBack = { navController.popBackStack() })
         }

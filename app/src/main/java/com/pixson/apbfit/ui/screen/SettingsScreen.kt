@@ -12,17 +12,28 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -30,6 +41,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixson.apbfit.R
+import com.pixson.apbfit.ui.viewmodel.HistoryAccountOption
 import com.pixson.apbfit.ui.viewmodel.SettingsViewModel
 
 @Composable
@@ -83,51 +95,26 @@ fun SettingsScreen(
         }
 
         Text(
-            text = stringResource(R.string.settings_account_section),
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Text(text = stringResource(R.string.active_account_label, uiState.activeAccountEmail ?: "—"))
-
-        uiState.accounts.forEach { account ->
-            OutlinedButton(
-                onClick = { viewModel.switchAccount(account.id) },
-                enabled = uiState.canSwitchAccount && !account.isActive,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = if (account.isActive) {
-                        stringResource(R.string.account_active, account.email)
-                    } else {
-                        account.email
-                    },
-                )
-            }
-        }
-
-        Button(
-            onClick = {
-                viewModel.launchAddAccount { intent -> addAccountLauncher.launch(intent) }
-            },
-            enabled = uiState.canSwitchAccount,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(R.string.add_google_account))
-        }
-
-        OutlinedButton(
-            onClick = viewModel::signOutCurrentAccount,
-            enabled = uiState.canSwitchAccount,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(R.string.settings_sign_out))
-        }
-
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-        Text(
             text = stringResource(R.string.settings_data_section),
             style = MaterialTheme.typography.titleMedium,
         )
+
+        if (uiState.accounts.isNotEmpty()) {
+            SettingsAccountDropdown(
+                accounts = uiState.accounts,
+                selectedAccountEmail = uiState.selectedAccountEmail,
+                onAccountSelected = viewModel::selectAccount,
+            )
+        }
+
+        OutlinedButton(
+            onClick = viewModel::requestClearHistoryConfirm,
+            enabled = uiState.selectedAccountId != null,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.settings_clear_history))
+        }
+
         if (uiState.showRecoverOrphanButton) {
             OutlinedButton(
                 onClick = viewModel::requestRecoverOrphanConfirm,
@@ -136,11 +123,20 @@ fun SettingsScreen(
                 Text(stringResource(R.string.settings_recover_orphan))
             }
         }
-        OutlinedButton(
-            onClick = viewModel::requestClearHistoryConfirm,
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        Text(
+            text = stringResource(R.string.settings_account_section),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Button(
+            onClick = {
+                viewModel.launchAddAccount { intent -> addAccountLauncher.launch(intent) }
+            },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(stringResource(R.string.settings_clear_history))
+            Text(stringResource(R.string.add_google_account))
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -201,7 +197,14 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = viewModel::dismissClearHistoryConfirm,
             title = { Text(stringResource(R.string.settings_clear_history_title)) },
-            text = { Text(stringResource(R.string.settings_clear_history_message)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.settings_clear_history_message_account,
+                        uiState.selectedAccountEmail,
+                    ),
+                )
+            },
             confirmButton = {
                 TextButton(onClick = viewModel::confirmClearHistory) {
                     Text(stringResource(R.string.settings_clear_history_confirm))
@@ -213,5 +216,49 @@ fun SettingsScreen(
                 }
             },
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsAccountDropdown(
+    accounts: List<HistoryAccountOption>,
+    selectedAccountEmail: String,
+    onAccountSelected: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        TextField(
+            value = selectedAccountEmail,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(stringResource(R.string.settings_clear_history_account_label)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth()
+                .semantics {
+                    contentDescription = context.getString(R.string.content_desc_settings_account_dropdown)
+                },
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            accounts.forEach { account ->
+                DropdownMenuItem(
+                    text = { Text(account.email) },
+                    onClick = {
+                        onAccountSelected(account.id)
+                        expanded = false
+                    },
+                )
+            }
+        }
     }
 }
