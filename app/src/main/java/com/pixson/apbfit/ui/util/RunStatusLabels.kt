@@ -25,8 +25,9 @@ fun validationResultLabelRes(resultName: String): Int = when (resultName) {
 }
 
 @StringRes
-fun segmentStatusLabelRes(success: Boolean): Int = if (success) {
-    R.string.segment_status_success
-} else {
-    R.string.segment_status_failed
+fun segmentStatusLabelRes(writeStatus: String): Int = when (writeStatus) {
+    "PLANNED" -> R.string.segment_status_pending
+    "SKIPPED" -> R.string.segment_status_skipped
+    "FAILED" -> R.string.segment_status_failed
+    else -> R.string.segment_status_success
 }

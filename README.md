@@ -1,8 +1,8 @@
 # APBFit — Auto Personal Boost Fit
 
-> **Status:** v1.1 sideload release — concurrent multi-account runs, simplified Home UI, Traditional Chinese UI.
+> **Status:** v1.2 sideload release shipped — scheduled write engine with screen-off catch-up (Issue #5).
 
-[Software Requirements Specification (v1.1)](docs/APBFit_SRS_v1.1_public.md) · [SRS v1.0](docs/APBFit_SRS_v1.0_public.md) · [Development Guide](docs/APBFit_Cursor_Prompt_public.md)
+[Software Requirements Specification (v1.2)](docs/APBFit_SRS_v1.2_public.md) · [SDS v1.2](docs/APBFit_SDS_v1.2_public.md) · [SRS v1.1](docs/APBFit_SRS_v1.1_public.md) · [Development Guide](docs/APBFit_Cursor_Prompt_public.md)
 
 ---
 
@@ -17,6 +17,30 @@ The app provides a structured run-based workflow with full observability: config
 **APBFit** 是一款 Android 應用程式，代表已登入的 Google 帳號，將模擬的步行與跑步活動資料寫入 **Google Fit**。其目標是產生與讀取 Google Fit 資料的健身整合應用相容的步數紀錄。
 
 本 App 提供結構化的 Run 流程與完整可觀察性：可設定強度與時長、前景服務背景執行、含 segment 層級細節的 Run 歷史紀錄，以及可選填的下游應用驗證結果紀錄。
+
+---
+
+## Features (v1.2)
+
+- Segment pre-planning at RUN: all segments inserted to Room as `PLANNED` before Fit writes
+- Scheme C scheduler: rolling `AlarmManager` + `PARTIAL_WAKE_LOCK` + `SCREEN_ON` catch-up
+- Reliable background writes when the screen is off or the app is backgrounded (Issue #5)
+- Throttled multi-round catch-up on alarm, screen-on, stop, and session end
+- Orphan session resume if still within duration; finalize with catch-up if past end
+- Active Runs: `segmentsWritten / segmentsPlanned` progress
+- History: pending (`待寫入`) and skipped (`已跳過`) segment statuses
+- Environment checklist: exact-alarm permission icon (warn-only, same UX as battery)
+
+**繁體中文**
+
+- RUN 時預生成全部 segment，先以 `PLANNED` 寫入 Room，再依排程寫入 Fit
+- Scheme C 排程：滾動 `AlarmManager` + `PARTIAL_WAKE_LOCK` + 螢幕亮起 catch-up
+- 關螢幕／背景時仍可可靠寫入步數（Issue #5）
+- alarm、亮螢、停止、Session 結束時多輪節流 catch-up
+- 孤兒 Session：未過期則恢復 FGS；已過期則 finalize 並 catch-up
+- 進行中畫面：`已寫入 / 預計` segment 進度
+- 歷史紀錄：待寫入、已跳過等 segment 狀態
+- 環境檢查：精確鬧鐘圖示（僅警告，與電池最佳化相同 UX）
 
 ---
 
@@ -114,7 +138,8 @@ ViewModel ──► RunRepository (Room)     AccountRepository (Google Sign-In)
     │
     ▼
 RunForegroundService
-    │  segment generator + batch queue
+    │  SegmentPlanner → Room (PLANNED)
+    │  SessionScheduler + CatchUpEngine → FitWriter
     ▼
 FitWriter ──► GoogleFitWriter (HistoryClient.insertData)
 ```
@@ -131,7 +156,8 @@ ViewModel ──► RunRepository（Room）     AccountRepository（Google 登�
     │
     ▼
 RunForegroundService
-    │  segment 生成器 + batch 佇列
+    │  SegmentPlanner → Room（PLANNED）
+    │  SessionScheduler + CatchUpEngine → FitWriter
     ▼
 FitWriter ──► GoogleFitWriter（HistoryClient.insertData）
 ```
@@ -161,7 +187,7 @@ Debug builds: `./gradlew assembleDebug`
 
 Install the generated APK via sideloading. Google Play distribution is planned for a future release.
 
-Current release: **v1.1.20260621** (`versionCode` 26062101).
+Current release: **v1.2.20260621** (`versionCode` 26062102).
 
 **繁體中文**
 
@@ -182,21 +208,33 @@ cd APBFit
 
 請以 sideload 方式安裝產生的 APK。Google Play 上架規劃於未來版本。
 
+目前版本：**v1.2.20260621**（`versionCode` 26062102）。
+
 ---
 
 ## Documentation
 
 | Document | Description |
 |----------|-------------|
-| [SRS v1.0 (public)](docs/APBFit_SRS_v1.0_public.md) | Software Requirements Specification — functional and non-functional requirements, data model, UI inventory |
+| [SRS v1.2 (public)](docs/APBFit_SRS_v1.2_public.md) | v1.2 requirements (shipped) — pre-planned segments, scheduled write + catch-up, orphan resume (Issue #5) |
+| [SDS v1.2 (public)](docs/APBFit_SDS_v1.2_public.md) | v1.2 design (shipped) — Scheme C scheduler, Room v3 |
+| [SRS v1.1 (public)](docs/APBFit_SRS_v1.1_public.md) | v1.1 requirements (shipped) — multi-account sessions, simplified UI |
+| [SDS v1.1 (public)](docs/APBFit_SDS_v1.1_public.md) | v1.1 design (shipped) |
+| [SRS v1.0 (public)](docs/APBFit_SRS_v1.0_public.md) | v1.0 requirements |
 | [Development Guide (public)](docs/APBFit_Cursor_Prompt_public.md) | Technical decisions, package structure, implementation order, and development constraints |
+| [2hr Batch Power Estimate](docs/APBFit_2hr_Batch_Power_Estimate.md) | Wake frequency and rough battery impact for batch=3 vs batch=6 on a 2-hour run; background execution analysis (Issue #5) |
 
 **繁體中文**
 
 | 文件 | 說明 |
 |------|------|
-| [SRS v1.0（公開版）](docs/APBFit_SRS_v1.0_public.md) | 軟體需求規格書 — 功能/非功能需求、資料模型、畫面清單 |
+| [SRS v1.2（公開版）](docs/APBFit_SRS_v1.2_public.md) | v1.2 需求（已發布）— 步數預生成、排程寫入與 catch-up、orphan 續跑（Issue #5） |
+| [SDS v1.2（公開版）](docs/APBFit_SDS_v1.2_public.md) | v1.2 設計（已發布）— Scheme C 排程、Room v3 |
+| [SRS v1.1（公開版）](docs/APBFit_SRS_v1.1_public.md) | v1.1 需求（已發布）— 多帳號並發、簡化 UI |
+| [SDS v1.1（公開版）](docs/APBFit_SDS_v1.1_public.md) | v1.1 設計（已發布） |
+| [SRS v1.0（公開版）](docs/APBFit_SRS_v1.0_public.md) | v1.0 需求規格 |
 | [開發指南（公開版）](docs/APBFit_Cursor_Prompt_public.md) | 技術決策、套件結構、實作順序與開發限制 |
+| [2 小時 Run 耗電／喚醒估算](docs/APBFit_2hr_Batch_Power_Estimate.md) | batch=3 vs batch=6 喚醒頻率與粗略耗電；背景執行分析（Issue #5） |
 
 ---
 
@@ -204,22 +242,26 @@ cd APBFit
 
 | Version | Scope |
 |---------|-------|
+| **v1.2** | Sideload release — scheduled write engine, screen-off catch-up, orphan resume (Issue #5) |
 | **v1.1** | Sideload release — concurrent multi-account runs, simplified UI, config persistence, zh-TW UI |
 | **v1.0** | Sideload release — single-account runs, preset intensity levels, run history, result validation |
-| v1.2 | Custom intensity parameters |
-| v1.3 | Google Play Store release |
-| v1.4 | Write path adaptability via `FitWriter` interface |
+| v1.3 | Custom intensity parameters |
+| v1.4 | Orphan recovery preference (abandon vs resume PLANNED) |
+| v1.5 | Google Play Store release |
+| v1.6 | Write path adaptability via `FitWriter` interface |
 | v2.0+ | Cloud sync, export, dashboard |
 
 **繁體中文**
 
 | 版本 | 範圍 |
 |------|------|
+| **v1.2** | 側載發布 — 排程寫入引擎、關螢幕 catch-up、orphan 續跑（Issue #5） |
 | **v1.1** | 側載發布 — 多帳號並發 Run、簡化 UI、設定記憶、繁體中文介面 |
 | **v1.0** | 側載發布 — 單帳號 Run、預設強度、歷史紀錄、驗證結果紀錄 |
-| v1.2 | 自訂強度參數 |
-| v1.3 | Google Play 上架 |
-| v1.4 | 透過 `FitWriter` 介面支援寫入路徑替換 |
+| v1.3 | 自訂強度參數 |
+| v1.4 | Orphan 恢復偏好（放棄 vs 續寫 PLANNED） |
+| v1.5 | Google Play 上架 |
+| v1.6 | 透過 `FitWriter` 介面支援寫入路徑替換 |
 | v2.0+ | 雲端同步、匯出、儀表板 |
 
 ---

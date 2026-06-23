@@ -4,18 +4,23 @@ import com.pixson.apbfit.data.db.dao.RunDao
 import com.pixson.apbfit.data.db.dao.SegmentRecordDao
 import com.pixson.apbfit.data.db.entity.RunEntity
 import com.pixson.apbfit.data.db.entity.SegmentRecordEntity
+import com.pixson.apbfit.data.model.IntensityLevel
 import com.pixson.apbfit.data.model.RunAlreadyActiveException
 import com.pixson.apbfit.data.model.RunConfig
 import com.pixson.apbfit.data.model.RunSessionConfig
 import com.pixson.apbfit.data.model.RunSessionStartResult
 import com.pixson.apbfit.data.model.RunStartEntry
 import com.pixson.apbfit.data.model.RunStatus
+import com.pixson.apbfit.data.model.SegmentWriteStatus
 import com.pixson.apbfit.data.model.ValidationResult
-import java.util.UUID
+import com.pixson.apbfit.domain.SegmentPlanner
+import com.pixson.apbfit.domain.fit.SegmentGenerator
+import com.pixson.apbfit.domain.fit.seedForAccount
 import com.pixson.apbfit.di.IoDispatcher
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,6 +30,8 @@ class RunRepository @Inject constructor(
     private val segmentRecordDao: SegmentRecordDao,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
+    private val segmentPlanner = SegmentPlanner()
+
     fun observeRuns(accountId: String): Flow<List<RunEntity>> = runDao.observeRuns(accountId)
 
     fun observeSegments(runId: String): Flow<List<SegmentRecordEntity>> =
@@ -44,6 +51,12 @@ class RunRepository @Inject constructor(
 
     suspend fun hasRunningRows(): Boolean = withContext(ioDispatcher) {
         runDao.getAllActiveRuns().isNotEmpty()
+    }
+
+    suspend fun getOrphanSessionIds(): List<String> = withContext(ioDispatcher) {
+        runDao.getAllActiveRuns()
+            .map { it.sessionId }
+            .distinct()
     }
 
     suspend fun startRun(config: RunConfig): String = withContext(ioDispatcher) {
@@ -111,6 +124,40 @@ class RunRepository @Inject constructor(
         RunSessionStartResult(sessionId = sessionId, runs = entries)
     }
 
+    suspend fun planSegmentsForSession(sessionId: String) = withContext(ioDispatcher) {
+        val runs = runDao.getRunsBySessionId(sessionId)
+        runs.forEach { run ->
+            if (segmentRecordDao.countSegments(run.id) > 0) return@forEach
+            val sessionEndMillis = run.startTime + run.durationMinutes * 60_000L
+            val intensity = IntensityLevel.valueOf(run.intensityLevel)
+            val generator = SegmentGenerator(seedForAccount(sessionId, run.accountId))
+            val planned = segmentPlanner.planAllSegments(
+                runStartMillis = run.startTime,
+                sessionEndMillis = sessionEndMillis,
+                intensity = intensity,
+                generator = generator,
+            )
+            val entities = planned.map { segment ->
+                SegmentRecordEntity(
+                    id = UUID.randomUUID().toString(),
+                    runId = run.id,
+                    segmentIndex = segment.segmentIndex,
+                    startTime = segment.startTimeMillis,
+                    endTime = segment.endTimeMillis,
+                    steps = segment.steps,
+                    distanceMeters = segment.distanceMeters,
+                    writeTime = 0L,
+                    writeStatus = SegmentWriteStatus.PLANNED.name,
+                    success = false,
+                    errorMessage = null,
+                )
+            }
+            if (entities.isNotEmpty()) {
+                segmentRecordDao.insertAll(entities)
+            }
+        }
+    }
+
     suspend fun abandonRun(runId: String, message: String) = withContext(ioDispatcher) {
         finalizeRun(
             runId = runId,
@@ -121,12 +168,20 @@ class RunRepository @Inject constructor(
         )
     }
 
-    /** Finalize all RUNNING rows left after a process/service crash. */
-    suspend fun recoverOrphanedSessions(recoveryMessage: String): Int = withContext(ioDispatcher) {
-        val orphans = runDao.getAllActiveRuns()
-        if (orphans.isEmpty()) return@withContext 0
+    /**
+     * Force-finalize orphan session rows (Settings manual recovery).
+     * Does not write to Google Fit; service should run catch-up before calling this when possible.
+     */
+    suspend fun finalizeOrphanSessionInDb(
+        sessionId: String,
+        recoveryMessage: String,
+    ): Int = withContext(ioDispatcher) {
+        val runs = runDao.getRunsBySessionId(sessionId)
+            .filter { it.status == RunStatus.RUNNING.name }
+        if (runs.isEmpty()) return@withContext 0
         val now = System.currentTimeMillis()
-        orphans.forEach { run ->
+        runs.forEach { run ->
+            segmentRecordDao.markAllPlannedSkipped(run.id)
             val stepsWritten = segmentRecordDao.sumSuccessfulSteps(run.id)
             runDao.update(
                 run.copy(
@@ -137,12 +192,8 @@ class RunRepository @Inject constructor(
                 ),
             )
         }
-        orphans.size
+        runs.size
     }
-
-    /** Delegates to [recoverOrphanedSessions] for call-site compatibility during migration. */
-    suspend fun recoverOrphanedRuns(recoveryMessage: String): Int =
-        recoverOrphanedSessions(recoveryMessage)
 
     suspend fun insertRun(run: RunEntity) = withContext(ioDispatcher) {
         runDao.insert(run)
@@ -160,12 +211,52 @@ class RunRepository @Inject constructor(
         runDao.getRunsBySessionId(sessionId)
     }
 
-    suspend fun insertSegment(record: SegmentRecordEntity) = withContext(ioDispatcher) {
-        segmentRecordDao.insert(record)
+    suspend fun getDuePlannedSegments(
+        runId: String,
+        now: Long,
+        limit: Int,
+    ): List<SegmentRecordEntity> = withContext(ioDispatcher) {
+        segmentRecordDao.getDuePlanned(runId, now, limit)
     }
 
-    suspend fun insertSegments(records: List<SegmentRecordEntity>) = withContext(ioDispatcher) {
-        segmentRecordDao.insertAll(records)
+    suspend fun getNextPlannedBatch(runId: String, batchSize: Int): List<SegmentRecordEntity> =
+        withContext(ioDispatcher) {
+            segmentRecordDao.getNextPlannedBatch(runId, batchSize)
+        }
+
+    suspend fun computeNextBatchDeadlineMillis(
+        runId: String,
+        batchSize: Int,
+        now: Long,
+    ): Long? = withContext(ioDispatcher) {
+        val batch = segmentRecordDao.getNextPlannedBatch(runId, batchSize)
+        if (batch.isEmpty()) return@withContext null
+        val deadline = batch.maxOf { it.endTime }
+        if (deadline <= now) now else deadline
+    }
+
+    suspend fun countPlannedSegments(runId: String): Int = withContext(ioDispatcher) {
+        segmentRecordDao.countPlannedSegments(runId)
+    }
+
+    suspend fun countWrittenSegments(runId: String): Int = withContext(ioDispatcher) {
+        segmentRecordDao.countWrittenSegments(runId)
+    }
+
+    suspend fun countAllSegments(runId: String): Int = withContext(ioDispatcher) {
+        segmentRecordDao.countSegments(runId)
+    }
+
+    suspend fun sumSuccessfulSteps(runId: String): Int = withContext(ioDispatcher) {
+        segmentRecordDao.sumSuccessfulSteps(runId)
+    }
+
+    suspend fun markAllPlannedSkipped(runId: String) = withContext(ioDispatcher) {
+        segmentRecordDao.markAllPlannedSkipped(runId)
+    }
+
+    suspend fun updateSegments(records: List<SegmentRecordEntity>) = withContext(ioDispatcher) {
+        segmentRecordDao.updateAll(records)
     }
 
     suspend fun deleteOlderThan(cutoffMillis: Long): Int = withContext(ioDispatcher) {

@@ -1,5 +1,6 @@
 package com.pixson.apbfit.domain
 
+import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -45,6 +46,10 @@ class EnvironmentChecker @Inject constructor(
             id = EnvironmentCheckId.NOTIFICATIONS,
             status = if (areNotificationsEnabled()) CheckStatus.PASS else CheckStatus.WARN,
         ),
+        EnvironmentCheck(
+            id = EnvironmentCheckId.EXACT_ALARMS,
+            status = if (canScheduleExactAlarms()) CheckStatus.PASS else CheckStatus.WARN,
+        ),
     )
 
     fun evaluateCompact(
@@ -58,12 +63,23 @@ class EnvironmentChecker @Inject constructor(
             battery = if (isBatteryOptimizationDisabled()) CheckStatus.PASS else CheckStatus.WARN,
             fit = if (fitPass) CheckStatus.PASS else CheckStatus.WARN,
             notifications = if (areNotificationsEnabled()) CheckStatus.PASS else CheckStatus.WARN,
+            alarms = if (canScheduleExactAlarms()) CheckStatus.PASS else CheckStatus.WARN,
         )
     }
 
     fun batteryOptimizationIntent(): Intent =
         Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
             data = Uri.parse("package:$packageName")
+        }
+
+    fun exactAlarmIntent(): Intent =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                data = Uri.parse("package:$packageName")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        } else {
+            appDetailsIntent()
         }
 
     fun googleFitIntent(): Intent =
@@ -84,6 +100,12 @@ class EnvironmentChecker @Inject constructor(
             data = Uri.parse("package:$packageName")
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
+
+    fun canScheduleExactAlarms(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        return alarmManager.canScheduleExactAlarms()
+    }
 
     private fun isBatteryOptimizationDisabled(): Boolean {
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager

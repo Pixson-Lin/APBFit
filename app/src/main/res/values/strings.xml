@@ -52,6 +52,7 @@
     <string name="env_icon_battery">電池</string>
     <string name="env_icon_fit">Google Fit</string>
     <string name="env_icon_notifications">通知</string>
+    <string name="env_icon_alarms">鬧鐘</string>
     <string name="env_status_pass">正常</string>
     <string name="env_status_warn">需注意</string>
 
@@ -59,7 +60,7 @@
     <string name="active_run_elapsed">已進行：%1$s</string>
     <string name="active_run_remaining">剩餘：%1$s</string>
     <string name="active_run_steps">已寫入步數：%1$d</string>
-    <string name="active_run_segments">已寫入紀錄數：%1$d</string>
+    <string name="active_run_segments">已寫入紀錄：%1$d / %2$d</string>
     <string name="active_run_status">狀態：%1$s</string>
     <string name="active_run_stop">停止</string>
     <string name="active_run_finished">Run 已結束，狀態：%1$s</string>
@@ -131,11 +132,15 @@
     <string name="run_status_unknown">未知</string>
     <string name="segment_status_success">成功</string>
     <string name="segment_status_failed">失敗</string>
+    <string name="segment_status_pending">待寫入</string>
+    <string name="segment_status_skipped">已跳過</string>
+    <string name="notification_starting">正在啟動 Run…</string>
+    <string name="error_fgs_timeout">系統已結束前景服務（Android 15 時長限制）</string>
+    <string name="msg_recovered_run">已恢復先前未完成的 Run。</string>
 
     <string name="error_preflight_account">%1$s 預檢失敗：%2$s</string>
     <string name="msg_recovered_orphan_none">沒有需要重設的進行中紀錄。</string>
     <string name="error_run_already_active">已有 Run 進行中。</string>
-    <string name="msg_recovered_run">先前的 Run 已中斷並標記為已停止，請再次開始。</string>
     <string name="error_recovered_after_restart">應用程式重啟後已自動結束。</string>
     <string name="error_sign_in_failed">登入失敗。</string>
     <string name="msg_switched_account">已切換帳號。</string>

@@ -248,7 +248,7 @@ private fun RunHistoryCard(
                         )
                     } else {
                         segments.forEach { segment ->
-                            val statusLabel = stringResource(segmentStatusLabelRes(segment.success))
+                            val statusLabel = stringResource(segmentStatusLabelRes(segment.writeStatus))
                             Text(
                                 text = stringResource(
                                     R.string.history_segment_line,

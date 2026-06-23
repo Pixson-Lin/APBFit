@@ -21,6 +21,19 @@ class RunServiceStarter @Inject constructor(
         context.startForegroundService(intent)
     }
 
+    fun resumeOrphanSession(sessionId: String) {
+        startSession(sessionId)
+    }
+
+    fun finalizeOrphanSession(sessionId: String, recoveryMessage: String) {
+        val intent = Intent(context, RunForegroundService::class.java).apply {
+            action = RunForegroundService.ACTION_FINALIZE_ORPHAN
+            putExtra(RunForegroundService.EXTRA_SESSION_ID, sessionId)
+            putExtra(RunForegroundService.EXTRA_RECOVERY_MESSAGE, recoveryMessage)
+        }
+        context.startForegroundService(intent)
+    }
+
     fun stopSession() {
         val intent = Intent(context, RunForegroundService::class.java).apply {
             action = RunForegroundService.ACTION_STOP_SESSION

@@ -41,6 +41,7 @@ data class HomeUiState(
         battery = CheckStatus.WARN,
         fit = CheckStatus.WARN,
         notifications = CheckStatus.WARN,
+        alarms = CheckStatus.WARN,
     ),
     val selectedIntensity: IntensityLevel = IntensityLevel.BRISK_WALK,
     val durationMinutes: Int = HomeViewModel.DEFAULT_DURATION_MINUTES,
@@ -91,6 +92,7 @@ class HomeViewModel @Inject constructor(
             battery = CheckStatus.WARN,
             fit = CheckStatus.WARN,
             notifications = CheckStatus.WARN,
+            alarms = CheckStatus.WARN,
         ),
     )
 
@@ -284,6 +286,7 @@ class HomeViewModel @Inject constructor(
                     ),
                     accountIds,
                 )
+                runRepository.planSegmentsForSession(result.sessionId)
                 Log.d(TAG, "Session rows created sessionId=${result.sessionId}, starting foreground service")
                 runServiceStarter.startSession(result.sessionId)
             }.onSuccess {
@@ -297,12 +300,13 @@ class HomeViewModel @Inject constructor(
     }
 
     private suspend fun recoverStaleRunIfNeeded(showMessage: Boolean): Boolean {
-        val dbActive = runRepository.getAllActiveRuns()
-        if (dbActive.isEmpty()) return false
+        val sessionIds = runRepository.getOrphanSessionIds()
+        if (sessionIds.isEmpty()) return false
         if (runSessionStateHolder.isActive) return false
-        runRepository.recoverOrphanedSessions(uiStrings.recoveredAfterRestart)
-        runSessionStateHolder.clear()
-        Log.w(TAG, "Recovered ${dbActive.size} stale RUNNING run(s)")
+        sessionIds.forEach { sessionId ->
+            runServiceStarter.resumeOrphanSession(sessionId)
+        }
+        Log.w(TAG, "Resuming ${sessionIds.size} orphan session(s)")
         if (showMessage) {
             statusMessage.value = uiStrings.recoveredRun
         }
@@ -314,6 +318,8 @@ class HomeViewModel @Inject constructor(
     fun googleFitIntent(): Intent = environmentChecker.googleFitIntent()
 
     fun notificationSettingsIntent(): Intent = environmentChecker.notificationSettingsIntent()
+
+    fun exactAlarmIntent(): Intent = environmentChecker.exactAlarmIntent()
 
     fun onFitIconTap(
         launchSignIn: (Intent) -> Unit,
@@ -411,6 +417,7 @@ class HomeViewModel @Inject constructor(
                     accountIds,
                 )
                 val forceFailRunId = if (forceFailNextWrite) result.runs.first().runId else null
+                runRepository.planSegmentsForSession(result.sessionId)
                 runServiceStarter.startSession(result.sessionId, forceFailRunId)
             }.onSuccess {
                 statusMessage.value = uiStrings.debugRunStarted

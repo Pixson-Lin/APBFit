@@ -7,6 +7,7 @@ import com.pixson.apbfit.data.prefs.HistoryAccountPrefs
 import com.pixson.apbfit.data.repository.AccountRepository
 import com.pixson.apbfit.data.repository.RunRepository
 import com.pixson.apbfit.domain.EnvironmentChecker
+import com.pixson.apbfit.service.RunServiceStarter
 import com.pixson.apbfit.service.RunSessionStateHolder
 import com.pixson.apbfit.ui.util.UiStrings
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -34,6 +35,7 @@ class SettingsViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val runRepository: RunRepository,
     private val runSessionStateHolder: RunSessionStateHolder,
+    private val runServiceStarter: RunServiceStarter,
     private val historyAccountPrefs: HistoryAccountPrefs,
     private val environmentChecker: EnvironmentChecker,
     private val uiStrings: UiStrings,
@@ -140,11 +142,16 @@ class SettingsViewModel @Inject constructor(
                 showRecoverOrphanConfirm.value = false
                 return@launch
             }
-            val recovered = runRepository.recoverOrphanedSessions(uiStrings.recoveredAfterRestart)
-            runSessionStateHolder.clear()
+            val sessionIds = runRepository.getOrphanSessionIds()
+            sessionIds.forEach { sessionId ->
+                runServiceStarter.finalizeOrphanSession(
+                    sessionId,
+                    uiStrings.recoveredAfterRestart,
+                )
+            }
             showRecoverOrphanConfirm.value = false
             refreshOrphanState()
-            statusMessage.value = if (recovered > 0) {
+            statusMessage.value = if (sessionIds.isNotEmpty()) {
                 uiStrings.recoveredRun
             } else {
                 uiStrings.recoveredOrphanNone

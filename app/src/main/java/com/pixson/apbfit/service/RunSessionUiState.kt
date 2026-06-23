@@ -18,6 +18,7 @@ data class AccountRunUiState(
     val accountEmail: String,
     val totalSteps: Int = 0,
     val segmentsWritten: Int = 0,
+    val segmentsPlanned: Int = 0,
     val status: RunStatus = RunStatus.RUNNING,
     val errorMessage: String? = null,
 )

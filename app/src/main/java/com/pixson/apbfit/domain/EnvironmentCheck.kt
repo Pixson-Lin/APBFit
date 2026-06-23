@@ -10,6 +10,7 @@ enum class EnvironmentCheckId {
     GOOGLE_FIT_INSTALLED,
     FITNESS_PERMISSIONS,
     NOTIFICATIONS,
+    EXACT_ALARMS,
 }
 
 data class EnvironmentCheck(
@@ -21,4 +22,5 @@ data class CompactEnvironmentState(
     val battery: CheckStatus,
     val fit: CheckStatus,
     val notifications: CheckStatus,
+    val alarms: CheckStatus,
 )

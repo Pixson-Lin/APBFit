@@ -183,6 +183,9 @@ fun HomeScreen(
                     settingsLauncher.launch(viewModel.notificationSettingsIntent())
                 }
             },
+            onAlarmsTap = {
+                settingsLauncher.launch(viewModel.exactAlarmIntent())
+            },
         )
 
         if (BuildConfig.DEBUG) {
@@ -370,6 +373,7 @@ private fun EnvironmentIconRow(
     onBatteryTap: () -> Unit,
     onFitTap: () -> Unit,
     onNotificationsTap: () -> Unit,
+    onAlarmsTap: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -389,6 +393,11 @@ private fun EnvironmentIconRow(
             label = stringResource(R.string.env_icon_notifications),
             status = icons.notifications,
             onClick = onNotificationsTap,
+        )
+        EnvironmentIcon(
+            label = stringResource(R.string.env_icon_alarms),
+            status = icons.alarms,
+            onClick = onAlarmsTap,
         )
     }
 }

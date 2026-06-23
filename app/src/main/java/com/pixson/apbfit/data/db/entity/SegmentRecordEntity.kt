@@ -26,6 +26,7 @@ data class SegmentRecordEntity(
     val steps: Int,
     val distanceMeters: Float,
     val writeTime: Long,
+    val writeStatus: String,
     val success: Boolean,
     val errorMessage: String?,
 )

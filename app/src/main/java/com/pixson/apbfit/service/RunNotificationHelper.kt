@@ -34,6 +34,15 @@ class RunNotificationHelper @Inject constructor(
         notificationManager.createNotificationChannel(channel)
     }
 
+    fun buildPlaceholderNotification(): Notification =
+        NotificationCompat.Builder(context, CHANNEL_ID)
+            .setContentTitle(context.getString(R.string.notification_run_title))
+            .setContentText(context.getString(R.string.notification_starting))
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentIntent(openAppIntent())
+            .setOngoing(true)
+            .build()
+
     fun buildSummaryNotification(sessionId: String, state: RunSessionUiState): Notification {
         val session = state.session
         val groupKey = groupKey(sessionId)

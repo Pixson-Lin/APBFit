@@ -11,6 +11,7 @@ data class SegmentRecord(
     val steps: Int,
     val distanceMeters: Float,
     val writeTime: Long,
+    val writeStatus: SegmentWriteStatus,
     val success: Boolean,
     val errorMessage: String?,
 )
@@ -24,6 +25,8 @@ fun SegmentRecordEntity.toModel(): SegmentRecord = SegmentRecord(
     steps = steps,
     distanceMeters = distanceMeters,
     writeTime = writeTime,
+    writeStatus = runCatching { SegmentWriteStatus.valueOf(writeStatus) }
+        .getOrDefault(if (success) SegmentWriteStatus.WRITTEN else SegmentWriteStatus.FAILED),
     success = success,
     errorMessage = errorMessage,
 )
@@ -37,6 +40,7 @@ fun SegmentRecord.toEntity(): SegmentRecordEntity = SegmentRecordEntity(
     steps = steps,
     distanceMeters = distanceMeters,
     writeTime = writeTime,
+    writeStatus = writeStatus.name,
     success = success,
     errorMessage = errorMessage,
 )

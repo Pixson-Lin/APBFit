@@ -169,7 +169,13 @@ private fun AccountRunCard(account: AccountRunUiState) {
                 ),
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Text(text = stringResource(R.string.active_run_segments, account.segmentsWritten))
+            Text(
+                text = stringResource(
+                    R.string.active_run_segments,
+                    account.segmentsWritten,
+                    account.segmentsPlanned,
+                ),
+            )
             account.errorMessage?.let { message ->
                 Text(
                     text = message,

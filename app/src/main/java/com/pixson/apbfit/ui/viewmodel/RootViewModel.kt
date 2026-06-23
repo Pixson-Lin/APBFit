@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixson.apbfit.data.repository.AccountRepository
 import com.pixson.apbfit.data.repository.RunRepository
+import com.pixson.apbfit.service.RunServiceStarter
 import com.pixson.apbfit.service.RunSessionStateHolder
 import com.pixson.apbfit.ui.util.UiStrings
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,6 +17,7 @@ class RootViewModel @Inject constructor(
     val accountRepository: AccountRepository,
     val runSessionStateHolder: RunSessionStateHolder,
     private val runRepository: RunRepository,
+    private val runServiceStarter: RunServiceStarter,
     private val uiStrings: UiStrings,
 ) : ViewModel() {
     init {
@@ -24,14 +26,14 @@ class RootViewModel @Inject constructor(
             runRepository.deleteOlderThan(
                 System.currentTimeMillis() - RETENTION_MILLIS,
             )
-            val recovered = if (!runSessionStateHolder.isActive) {
-                runRepository.recoverOrphanedSessions(uiStrings.recoveredAfterRestart)
-            } else {
-                0
-            }
-            if (recovered > 0) {
-                runSessionStateHolder.clear()
-                Log.w(TAG, "Recovered $recovered orphaned RUNNING run(s) from previous session.")
+            if (!runSessionStateHolder.isActive) {
+                val sessionIds = runRepository.getOrphanSessionIds()
+                sessionIds.forEach { sessionId ->
+                    runServiceStarter.resumeOrphanSession(sessionId)
+                }
+                if (sessionIds.isNotEmpty()) {
+                    Log.w(TAG, "Resuming ${sessionIds.size} orphan session(s) from cold start.")
+                }
             }
         }
     }

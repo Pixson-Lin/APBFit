@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.pixson.apbfit.data.db.entity.RunEntity
 import com.pixson.apbfit.data.db.entity.SegmentRecordEntity
 import com.pixson.apbfit.data.model.IntensityLevel
+import com.pixson.apbfit.data.model.SegmentWriteStatus
 import com.pixson.apbfit.data.model.ValidationResult
 import com.pixson.apbfit.data.prefs.HistoryAccountPrefs
 import com.pixson.apbfit.data.repository.AccountRepository
@@ -46,7 +47,7 @@ data class SegmentHistoryItem(
     val timeRangeLabel: String,
     val steps: Int,
     val distanceMeters: Float,
-    val success: Boolean,
+    val writeStatus: String,
     val errorMessage: String?,
 )
 
@@ -133,13 +134,18 @@ class HistoryViewModel @Inject constructor(
                     isExpanded = run.id == runsSnapshot.expandedId,
                 )
             },
-            expandedSegments = runsSnapshot.segmentEntities.map { segment ->
+            expandedSegments = runsSnapshot.segmentEntities
+                .filter { segment ->
+                    segment.writeStatus != SegmentWriteStatus.PLANNED.name ||
+                        segment.endTime <= System.currentTimeMillis()
+                }
+                .map { segment ->
                 SegmentHistoryItem(
                     segmentIndex = segment.segmentIndex,
                     timeRangeLabel = "${RunFormatting.formatTime(segment.startTime)} – ${RunFormatting.formatTime(segment.endTime)}",
                     steps = segment.steps,
                     distanceMeters = segment.distanceMeters,
-                    success = segment.success,
+                    writeStatus = segment.writeStatus,
                     errorMessage = segment.errorMessage,
                 )
             },
