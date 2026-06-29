@@ -1,6 +1,6 @@
 # APBFit — Auto Personal Boost Fit
 
-> **Status:** v1.2 sideload release shipped — scheduled write engine with screen-off catch-up (Issue #5).
+> **Status:** v1.3 sideload release shipped — formal applicationId (`com.pixsonlin.apbfit`) for Play Store prep.
 
 [Software Requirements Specification (v1.2)](docs/APBFit_SRS_v1.2_public.md) · [SDS v1.2](docs/APBFit_SDS_v1.2_public.md) · [SRS v1.1](docs/APBFit_SRS_v1.1_public.md) · [Development Guide](docs/APBFit_Cursor_Prompt_public.md)
 
@@ -17,6 +17,18 @@ The app provides a structured run-based workflow with full observability: config
 **APBFit** 是一款 Android 應用程式，代表已登入的 Google 帳號，將模擬的步行與跑步活動資料寫入 **Google Fit**。其目標是產生與讀取 Google Fit 資料的健身整合應用相容的步數紀錄。
 
 本 App 提供結構化的 Run 流程與完整可觀察性：可設定強度與時長、前景服務背景執行、含 segment 層級細節的 Run 歷史紀錄，以及可選填的下游應用驗證結果紀錄。
+
+---
+
+## Features (v1.3)
+
+- Renamed applicationId / package to the formal **`com.pixsonlin.apbfit`** (Google Play Store preparation)
+- Environment-check WARN indicator now a fixed **orange** (theme-independent, clearly distinct from PASS green; does not imply RUN is blocked)
+
+**繁體中文**
+
+- applicationId / package 改為正式名稱 **`com.pixsonlin.apbfit`**（Google Play 上架準備）
+- 環境檢查 WARN 指示改為固定**橘色**（不受主題影響、與 PASS 綠色明確區分；不代表擋 RUN）
 
 ---
 
@@ -187,7 +199,7 @@ Debug builds: `./gradlew assembleDebug`
 
 Install the generated APK via sideloading. Google Play distribution is planned for a future release.
 
-Current release: **v1.2.20260621** (`versionCode` 26062102).
+Current release: **v1.3.20260629** (`versionCode` 26062901).
 
 **繁體中文**
 
@@ -208,7 +220,7 @@ cd APBFit
 
 請以 sideload 方式安裝產生的 APK。Google Play 上架規劃於未來版本。
 
-目前版本：**v1.2.20260621**（`versionCode` 26062102）。
+目前版本：**v1.3.20260629**（`versionCode` 26062901）。
 
 ---
 
@@ -242,26 +254,28 @@ cd APBFit
 
 | Version | Scope |
 |---------|-------|
+| **v1.3** | Sideload release — formal applicationId `com.pixsonlin.apbfit` (Play prep), WARN indicator orange |
 | **v1.2** | Sideload release — scheduled write engine, screen-off catch-up, orphan resume (Issue #5) |
 | **v1.1** | Sideload release — concurrent multi-account runs, simplified UI, config persistence, zh-TW UI |
 | **v1.0** | Sideload release — single-account runs, preset intensity levels, run history, result validation |
-| v1.3 | Custom intensity parameters |
-| v1.4 | Orphan recovery preference (abandon vs resume PLANNED) |
-| v1.5 | Google Play Store release |
-| v1.6 | Write path adaptability via `FitWriter` interface |
+| v1.4 | Custom intensity parameters |
+| v1.5 | Orphan recovery preference (abandon vs resume PLANNED) |
+| v1.6 | Google Play Store release |
+| v1.7 | Write path adaptability via `FitWriter` interface |
 | v2.0+ | Cloud sync, export, dashboard |
 
 **繁體中文**
 
 | 版本 | 範圍 |
 |------|------|
+| **v1.3** | 側載發布 — 正式 applicationId `com.pixsonlin.apbfit`（上架準備）、WARN 指示改橘色 |
 | **v1.2** | 側載發布 — 排程寫入引擎、關螢幕 catch-up、orphan 續跑（Issue #5） |
 | **v1.1** | 側載發布 — 多帳號並發 Run、簡化 UI、設定記憶、繁體中文介面 |
 | **v1.0** | 側載發布 — 單帳號 Run、預設強度、歷史紀錄、驗證結果紀錄 |
-| v1.3 | 自訂強度參數 |
-| v1.4 | Orphan 恢復偏好（放棄 vs 續寫 PLANNED） |
-| v1.5 | Google Play 上架 |
-| v1.6 | 透過 `FitWriter` 介面支援寫入路徑替換 |
+| v1.4 | 自訂強度參數 |
+| v1.5 | Orphan 恢復偏好（放棄 vs 續寫 PLANNED） |
+| v1.6 | Google Play 上架 |
+| v1.7 | 透過 `FitWriter` 介面支援寫入路徑替換 |
 | v2.0+ | 雲端同步、匯出、儀表板 |
 
 ---

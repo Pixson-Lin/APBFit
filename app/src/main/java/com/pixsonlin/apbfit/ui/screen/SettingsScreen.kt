@@ -1,0 +1,264 @@
+package com.pixsonlin.apbfit.ui.screen
+
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixsonlin.apbfit.R
+import com.pixsonlin.apbfit.ui.viewmodel.HistoryAccountOption
+import com.pixsonlin.apbfit.ui.viewmodel.SettingsViewModel
+
+@Composable
+fun SettingsScreen(
+    onNavigateBack: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshOrphanState()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val addAccountLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        viewModel.onAddAccountResult(result.data)
+    }
+
+    val settingsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = onNavigateBack) {
+                Text(stringResource(R.string.nav_back))
+            }
+            Text(
+                text = stringResource(R.string.nav_settings),
+                style = MaterialTheme.typography.headlineSmall,
+            )
+            TextButton(onClick = {}) { Text("") }
+        }
+
+        Text(
+            text = stringResource(R.string.settings_data_section),
+            style = MaterialTheme.typography.titleMedium,
+        )
+
+        if (uiState.accounts.isNotEmpty()) {
+            SettingsAccountDropdown(
+                accounts = uiState.accounts,
+                selectedAccountEmail = uiState.selectedAccountEmail,
+                onAccountSelected = viewModel::selectAccount,
+            )
+        }
+
+        OutlinedButton(
+            onClick = viewModel::requestClearHistoryConfirm,
+            enabled = uiState.selectedAccountId != null,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.settings_clear_history))
+        }
+
+        if (uiState.showRecoverOrphanButton) {
+            OutlinedButton(
+                onClick = viewModel::requestRecoverOrphanConfirm,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.settings_recover_orphan))
+            }
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        Text(
+            text = stringResource(R.string.settings_account_section),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Button(
+            onClick = {
+                viewModel.launchAddAccount { intent -> addAccountLauncher.launch(intent) }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.add_google_account))
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        Text(
+            text = stringResource(R.string.settings_shortcuts_section),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        OutlinedButton(
+            onClick = { settingsLauncher.launch(viewModel.batteryOptimizationIntent()) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.settings_battery_optimization))
+        }
+        OutlinedButton(
+            onClick = { settingsLauncher.launch(viewModel.appDetailsIntent()) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.settings_app_details))
+        }
+        OutlinedButton(
+            onClick = { settingsLauncher.launch(viewModel.notificationSettingsIntent()) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.settings_notifications))
+        }
+        OutlinedButton(
+            onClick = { settingsLauncher.launch(viewModel.googleFitIntent()) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.settings_google_fit))
+        }
+
+        uiState.statusMessage?.let { message ->
+            Text(text = message, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+
+    if (uiState.showRecoverOrphanConfirm) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissRecoverOrphanConfirm,
+            title = { Text(stringResource(R.string.settings_recover_orphan_title)) },
+            text = { Text(stringResource(R.string.settings_recover_orphan_message)) },
+            confirmButton = {
+                TextButton(onClick = viewModel::confirmRecoverOrphanSessions) {
+                    Text(stringResource(R.string.settings_recover_orphan_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissRecoverOrphanConfirm) {
+                    Text(stringResource(R.string.settings_clear_history_cancel))
+                }
+            },
+        )
+    }
+
+    if (uiState.showClearHistoryConfirm) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissClearHistoryConfirm,
+            title = { Text(stringResource(R.string.settings_clear_history_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.settings_clear_history_message_account,
+                        uiState.selectedAccountEmail,
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::confirmClearHistory) {
+                    Text(stringResource(R.string.settings_clear_history_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissClearHistoryConfirm) {
+                    Text(stringResource(R.string.settings_clear_history_cancel))
+                }
+            },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsAccountDropdown(
+    accounts: List<HistoryAccountOption>,
+    selectedAccountEmail: String,
+    onAccountSelected: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        TextField(
+            value = selectedAccountEmail,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(stringResource(R.string.settings_clear_history_account_label)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth()
+                .semantics {
+                    contentDescription = context.getString(R.string.content_desc_settings_account_dropdown)
+                },
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            accounts.forEach { account ->
+                DropdownMenuItem(
+                    text = { Text(account.email) },
+                    onClick = {
+                        onAccountSelected(account.id)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}

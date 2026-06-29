@@ -133,7 +133,7 @@ flowchart TD
 ### 2.4 Module Decomposition
 
 ```
-com.pixson.apbfit
+com.pixsonlin.apbfit
 ├── data
 │   ├── db            AppDatabase, DAOs, entities, type converters
 │   ├── model         Run, SegmentRecord, IntensityLevel, RunStatus, ValidationResult

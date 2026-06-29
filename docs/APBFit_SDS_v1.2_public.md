@@ -124,7 +124,7 @@ Unchanged (Kotlin, Compose, Hilt, Room, Coroutines, Google Fit SDK). **New manif
 ### 2.4 Module Decomposition (v1.2 delta)
 
 ```
-com.pixson.apbfit
+com.pixsonlin.apbfit
 ├── data
 │   ├── db            SegmentRecordEntity + writeStatus (migration v2→v3)
 │   ├── model         SegmentWriteStatus enum

@@ -86,7 +86,7 @@ implementation("androidx.lifecycle:lifecycle-service:2.8.0")
 ## Package Structure
 
 ```
-com.pixson.apbfit
+com.pixsonlin.apbfit
 ├── data
 │   ├── db
 │   │   ├── AppDatabase.kt

@@ -131,7 +131,7 @@ Unchanged from v1.0 (Kotlin, Compose, Hilt, Room, Coroutines, Google Fit SDK). *
 ### 2.4 Module Decomposition (v1.1 delta)
 
 ```
-com.pixson.apbfit
+com.pixsonlin.apbfit
 ├── data
 │   ├── db            RunEntity + sessionId (migration v1→v2)
 │   ├── model         IntensityLevel (7 values), RunSessionConfig

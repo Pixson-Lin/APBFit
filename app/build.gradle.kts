@@ -7,15 +7,15 @@ plugins {
 }
 
 android {
-    namespace = "com.pixson.apbfit"
+    namespace = "com.pixsonlin.apbfit"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.pixson.apbfit"
+        applicationId = "com.pixsonlin.apbfit"
         minSdk = 31
         targetSdk = 35
-        versionCode = 26062102
-        versionName = "1.2.20260621"
+        versionCode = 26062901
+        versionName = "1.3.20260629"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
