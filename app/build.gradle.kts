@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +8,16 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
+
+// Upload signing config (Play). Loaded from a gitignored keystore.properties at the repo root.
+// When absent (e.g. fresh clone / CI without secrets), release falls back to the debug keystore.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        load(FileInputStream(keystorePropertiesFile))
+    }
+}
+val hasUploadKeystore = keystorePropertiesFile.exists()
 
 android {
     namespace = "com.pixsonlin.apbfit"
@@ -23,11 +36,26 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasUploadKeystore) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            // v1.0 sideload: sign with debug keystore so OAuth SHA-1 matches existing Google Cloud setup.
-            signingConfig = signingConfigs.getByName("debug")
+            // Upload keystore for Play (gitignored keystore.properties); falls back to debug when absent.
+            signingConfig = if (hasUploadKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

@@ -106,9 +106,34 @@
 - upload keystore 一旦用於 Play，**遺失將無法上傳更新**（雖可向 Google 申請重設 upload key，但麻煩）。請妥善備份、勿進版控。
 - 若日後也會「直接安裝自己簽的 release APK（非經 Play）」做測試，那份 APK 是用 upload key 簽的，OAuth 也要有 upload key SHA-1 才能登入。
 
+### 5.6 已完成：upload keystore（2026-06-29）
+- **檔案**：`keystore/apbfit-upload.jks`（gitignored）
+- **設定檔**：`keystore.properties`（repo 根，gitignored；含密碼，**不入版控**）
+- **金鑰**：alias `apbfit-upload`、RSA 2048、效期 10000 天、`CN=APBFit, O=Pixson Lin, C=TW`
+- **密碼保管**：Bitwarden Secure Note（**不寫在本文件**）；本機僅留於 gitignored 的 `keystore.properties`
+- **build 接線**：`app/build.gradle.kts` 於 `keystore.properties` 存在時用 upload key 簽 release；不存在則回退 debug（fresh clone / CI 仍可 build）
+- **驗證**：`assembleRelease` 成功，apksigner 確認 release APK 憑證 = upload key
+
+### 5.7 SHA-1 對照表
+| 用途 | SHA-1 | 何時用 | OAuth 狀態 |
+|------|-------|--------|-----------|
+| debug（本機 debug 版） | `EE:7B:CE:F1:9C:01:29:AD:3A:DA:C4:0D:DD:AB:3D:98:35:F8:BA:3E` | 平常 debug sideload 測試 | 已加入 |
+| upload（本機 release 版） | `E2:D3:66:45:6A:8B:FA:CE:B1:3E:D6:FD:88:82:40:62:54:86:12:AD` | 測 release 版 sideload | 需測 release 才加 |
+| Play app signing | 上傳 AAB 後於 Play Console 取得 | 經 Play 派送的正式版 | 上架後補登 |
+
 ---
 
 ## 6. 待辦快照
+
+- [x] 第 1 階段：local 改名 + build/測試通過
+- [x] 第 2 階段：新增 OAuth client（新 package + debug SHA-1）＋ sideload 實測
+- [x] 第 3 階段：commit / tag `v1.3.20260629` / 發 release
+- [x] 產生 upload keystore、切換 release 簽章（已驗證）
+- [ ] （平行）等待 Play Console 開發者帳號審核
+- [ ] 帳號通過後：建立 App、產 AAB（`./gradlew bundleRelease`）、上傳、啟用 Play App Signing
+- [ ] Play 上傳後：取得 app signing SHA-1，補登 OAuth client
+- [ ] （視需要）測 release 版 sideload 前，補登 upload SHA-1 到 OAuth client
+- [ ] Play 內測：testers 名單與 OAuth test users 名單對齊
 
 - [ ] 第 1 階段：local 改名 + build/測試通過
 - [ ] 第 2 階段：新增 OAuth client（新 package + 測試 SHA-1）＋ sideload 實測

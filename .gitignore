@@ -21,3 +21,10 @@ bin/
 gen/
 out/
 release/
+.kotlin/
+
+# Signing — never commit keystores or their passwords
+keystore.properties
+keystore/
+*.jks
+*.keystore
