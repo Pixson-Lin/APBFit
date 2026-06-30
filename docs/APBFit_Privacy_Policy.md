@@ -5,8 +5,7 @@
 
 This Privacy Policy explains how the **APBFit** application ("APBFit", "the app", "we", "us") handles information when you use it. APBFit is distributed for sideload / testing use and is **not** an official Google Play production release at this time.
 
-> **Contact:** `<YOUR_CONTACT_EMAIL>`
-> (Replace with the email you use for the Google Play / OAuth project before publishing.)
+**Contact:** pixson.lin@gmail.com
 
 ---
 
@@ -114,7 +113,7 @@ We may update this Privacy Policy from time to time. Material changes will be re
 
 ## 12. Contact
 
-For any questions about this Privacy Policy or your data, contact: `<YOUR_CONTACT_EMAIL>`.
+For any questions about this Privacy Policy or your data, contact: pixson.lin@gmail.com.
 
 ---
 ---
@@ -126,8 +125,7 @@ For any questions about this Privacy Policy or your data, contact: `<YOUR_CONTAC
 
 本隱私權政策說明 **APBFit** 應用程式（以下稱「APBFit」「本 App」「我們」）在您使用時如何處理資訊。APBFit 目前以 sideload／測試形式發布，**並非** Google Play 正式上架版本。
 
-> **聯絡方式：** `<YOUR_CONTACT_EMAIL>`
-> （上架前請替換為你 Google Play／OAuth 專案使用的信箱。）
+**聯絡方式：** pixson.lin@gmail.com
 
 ---
 
@@ -235,4 +233,4 @@ APBFit 目前使用處於 **Testing** 模式的 Google OAuth 設定。僅被加�
 
 ## 12. 聯絡
 
-如對本隱私權政策或你的資料有任何疑問，請聯絡：`<YOUR_CONTACT_EMAIL>`。
+如對本隱私權政策或你的資料有任何疑問，請聯絡：pixson.lin@gmail.com。

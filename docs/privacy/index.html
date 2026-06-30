@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>APBFit Privacy Policy</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.65;
+      max-width: 46rem;
+      margin: 2rem auto;
+      padding: 0 1.25rem 3rem;
+      color: #1a1a1a;
+      background: #fff;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { color: #e8e8e8; background: #121212; }
+      a { color: #8ab4f8; }
+      hr { border-color: #333; }
+    }
+    h1 { font-size: 1.75rem; margin-top: 0; }
+    h2 { font-size: 1.25rem; margin-top: 2rem; border-bottom: 1px solid #ddd; padding-bottom: 0.25rem; }
+    @media (prefers-color-scheme: dark) { h2 { border-color: #333; } }
+    h3 { font-size: 1.05rem; margin-top: 1.25rem; }
+    .meta { color: #555; font-size: 0.95rem; }
+    @media (prefers-color-scheme: dark) { .meta { color: #aaa; } }
+    ul { padding-left: 1.35rem; }
+    li { margin: 0.35rem 0; }
+    .lang-divider { margin: 3rem 0; border: none; border-top: 2px solid #ccc; }
+    @media (prefers-color-scheme: dark) { .lang-divider { border-color: #444; } }
+    nav { font-size: 0.9rem; margin-bottom: 1.5rem; }
+  </style>
+</head>
+<body>
+  <nav><a href="../">← APBFit</a></nav>
+
+  <h1>APBFit Privacy Policy</h1>
+  <p class="meta"><strong>Effective date:</strong> 2026-06-30<br>
+  <strong>Last updated:</strong> 2026-06-30</p>
+
+  <p>This Privacy Policy explains how the <strong>APBFit</strong> application ("APBFit", "the app", "we", "us") handles information when you use it. APBFit is distributed for sideload / testing use and is <strong>not</strong> an official Google Play production release at this time.</p>
+
+  <p><strong>Contact:</strong> <a href="mailto:pixson.lin@gmail.com">pixson.lin@gmail.com</a></p>
+
+  <h2>1. Summary</h2>
+  <ul>
+    <li>APBFit runs <strong>entirely on your device</strong>. There is <strong>no APBFit server</strong> and <strong>no APBFit-operated database</strong>.</li>
+    <li>We do <strong>not</strong> sell, rent, or share your data with third parties.</li>
+    <li>The only external service the app communicates with is <strong>Google</strong> (Google Sign-In and the Google Fit / Fitness API), in order to sign you in and to <strong>write activity data into your own Google Fit account</strong> at your request.</li>
+    <li>All app-generated history is stored <strong>locally</strong> on your device and can be deleted by you at any time.</li>
+  </ul>
+
+  <h2>2. What APBFit does</h2>
+  <p>APBFit lets a signed-in Google account generate and <strong>write simulated walking/running activity</strong> (step count, distance, and activity segments) into <strong>Google Fit</strong>. You configure the intensity, duration, and batching; the app then writes the corresponding records to your Google Fit account.</p>
+
+  <h2>3. Information the app accesses and processes</h2>
+  <h3>3.1 Google account information (via Google Sign-In)</h3>
+  <ul>
+    <li>Your Google account <strong>email address</strong> and <strong>account identifier</strong>, and basic profile information returned by Google Sign-In.</li>
+    <li>Purpose: to identify which account(s) you have enabled and to perform Google Fit writes on their behalf.</li>
+  </ul>
+  <h3>3.2 Google Fit / fitness data (via the Fitness API)</h3>
+  <ul>
+    <li>APBFit requests <strong>write</strong> permission for: step count, distance, and activity segments.</li>
+    <li>The app <strong>creates and writes</strong> these fitness records to your Google Fit account. This is <strong>health and fitness data</strong>.</li>
+    <li>APBFit does <strong>not</strong> read your existing Google Fit history for analytics or profiling.</li>
+  </ul>
+  <h3>3.3 Data stored locally on your device</h3>
+  <ul>
+    <li><strong>Run history and segment records</strong> (start/end times, generated steps/distance, write status) — stored in a local on-device database (Room).</li>
+    <li><strong>App preferences</strong> — selected accounts, run configuration (intensity, duration, batch size), and last-selected options — stored in local app storage (SharedPreferences/DataStore).</li>
+    <li>This local data never leaves your device except as the fitness records you choose to write to Google Fit.</li>
+  </ul>
+  <h3>3.4 What we do NOT collect</h3>
+  <ul>
+    <li>No analytics, advertising identifiers, or tracking SDKs.</li>
+    <li>No location data.</li>
+    <li>No transmission of your data to the developer or to any third-party server.</li>
+  </ul>
+
+  <h2>4. How information is used</h2>
+  <p>Information is used solely to:</p>
+  <ul>
+    <li>Authenticate you with Google and maintain your enabled-account list.</li>
+    <li>Generate and write the activity records you request into Google Fit.</li>
+    <li>Display your run history and status within the app.</li>
+  </ul>
+  <p>We do <strong>not</strong> use your data for advertising, profiling, or any purpose unrelated to the features above.</p>
+
+  <h2>5. Google API Services — Limited Use disclosure</h2>
+  <p>APBFit's use of information received from Google APIs adheres to the
+  <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>,
+  including the <strong>Limited Use</strong> requirements. Specifically:</p>
+  <ul>
+    <li>Google user data is used only to provide and improve the app's stated features (writing activity to your Google Fit).</li>
+    <li>We do not transfer or sell Google user data to third parties, ad networks, data brokers, or for advertising.</li>
+    <li>We do not use Google user data for purposes unrelated to the app's features.</li>
+    <li>No humans read your Google user data except where required for security, to comply with law, or with your explicit consent.</li>
+  </ul>
+
+  <h2>6. Data storage, retention, and deletion</h2>
+  <ul>
+    <li>App history is stored <strong>locally</strong> and is automatically pruned: records older than <strong>90 days</strong> are deleted on app launch.</li>
+    <li>You can clear history within the app, and <strong>uninstalling APBFit removes all local app data</strong>.</li>
+    <li><strong>Fitness records already written to Google Fit live in your Google account</strong>, not in APBFit. To remove them, use the Google Fit app or your Google Account data controls.</li>
+    <li>You can revoke APBFit's access at any time via your Google Account → <strong>Security → Third-party access / connected apps</strong>, or by signing out within the app.</li>
+  </ul>
+
+  <h2>7. Data sharing</h2>
+  <p>We do <strong>not</strong> share your data with third parties. The app only exchanges data with <strong>Google services</strong> as necessary to sign you in and to write fitness records to your own Google Fit account.</p>
+
+  <h2>8. Security</h2>
+  <ul>
+    <li>APBFit relies on Android's app sandbox and Google's authenticated APIs.</li>
+    <li>No credentials or passwords are stored by the app; authentication is handled by Google Sign-In / Google Play Services.</li>
+  </ul>
+
+  <h2>9. Children's privacy</h2>
+  <p>APBFit is not directed to children under 13 (or the equivalent minimum age in your jurisdiction) and does not knowingly collect data from them.</p>
+
+  <h2>10. Access restrictions (testing)</h2>
+  <p>APBFit currently uses a Google OAuth configuration in <strong>Testing</strong> mode. Only Google accounts added as <strong>test users</strong> can sign in and use the Google Fit features.</p>
+
+  <h2>11. Changes to this policy</h2>
+  <p>We may update this Privacy Policy from time to time. Material changes will be reflected by updating the "Last updated" date above.</p>
+
+  <h2>12. Contact</h2>
+  <p>For any questions about this Privacy Policy or your data, contact: <a href="mailto:pixson.lin@gmail.com">pixson.lin@gmail.com</a>.</p>
+
+  <hr class="lang-divider">
+
+  <h1 lang="zh-Hant">APBFit 隱私權政策（繁體中文）</h1>
+  <p class="meta" lang="zh-Hant"><strong>生效日期：</strong> 2026-06-30<br>
+  <strong>最後更新：</strong> 2026-06-30</p>
+
+  <p lang="zh-Hant">本隱私權政策說明 <strong>APBFit</strong> 應用程式（以下稱「APBFit」「本 App」「我們」）在您使用時如何處理資訊。APBFit 目前以 sideload／測試形式發布，<strong>並非</strong> Google Play 正式上架版本。</p>
+
+  <p lang="zh-Hant"><strong>聯絡方式：</strong> <a href="mailto:pixson.lin@gmail.com">pixson.lin@gmail.com</a></p>
+
+  <h2 lang="zh-Hant">1. 摘要</h2>
+  <ul lang="zh-Hant">
+    <li>APBFit <strong>完全在你的裝置上執行</strong>，<strong>沒有 APBFit 伺服器</strong>、<strong>沒有我們營運的資料庫</strong>。</li>
+    <li>我們<strong>不會</strong>販售、出租或將你的資料分享給第三方。</li>
+    <li>本 App 唯一會通訊的外部服務是 <strong>Google</strong>（Google 登入與 Google Fit／Fitness API），用途是讓你登入，以及依你的指示把活動資料<strong>寫入你自己的 Google Fit 帳號</strong>。</li>
+    <li>所有由 App 產生的歷史紀錄都<strong>儲存在你的裝置本機</strong>，你可隨時刪除。</li>
+  </ul>
+
+  <h2 lang="zh-Hant">2. APBFit 的功能</h2>
+  <p lang="zh-Hant">APBFit 讓已登入的 Google 帳號產生並<strong>寫入模擬的步行／跑步活動</strong>（步數、距離、活動區段）到 <strong>Google Fit</strong>。你可設定強度、時長與批次量，App 會據此把對應紀錄寫入你的 Google Fit 帳號。</p>
+
+  <h2 lang="zh-Hant">3. App 存取與處理的資訊</h2>
+  <h3 lang="zh-Hant">3.1 Google 帳號資訊（透過 Google 登入）</h3>
+  <ul lang="zh-Hant">
+    <li>你的 Google 帳號 <strong>email</strong>、<strong>帳號識別碼</strong>，以及 Google 登入回傳的基本個人資料。</li>
+    <li>用途：辨識你啟用的帳號，並代表這些帳號執行 Google Fit 寫入。</li>
+  </ul>
+  <h3 lang="zh-Hant">3.2 Google Fit／健身資料（透過 Fitness API）</h3>
+  <ul lang="zh-Hant">
+    <li>APBFit 申請步數、距離、活動區段的<strong>寫入</strong>權限。</li>
+    <li>App 會<strong>建立並寫入</strong>這些健身紀錄到你的 Google Fit 帳號。此屬於<strong>健康與健身資料</strong>。</li>
+    <li>APBFit <strong>不會</strong>讀取你既有的 Google Fit 歷史用於分析或建檔。</li>
+  </ul>
+  <h3 lang="zh-Hant">3.3 儲存在裝置本機的資料</h3>
+  <ul lang="zh-Hant">
+    <li><strong>Run 歷史與 segment 紀錄</strong>（起訖時間、產生的步數／距離、寫入狀態）— 儲存於裝置本機資料庫（Room）。</li>
+    <li><strong>App 偏好設定</strong> — 選取的帳號、Run 設定（強度、時長、批次量）、上次選項 — 儲存於本機 App 儲存空間（SharedPreferences／DataStore）。</li>
+    <li>這些本機資料不會離開你的裝置，除了你選擇寫入 Google Fit 的健身紀錄之外。</li>
+  </ul>
+  <h3 lang="zh-Hant">3.4 我們不會蒐集的資料</h3>
+  <ul lang="zh-Hant">
+    <li>不含分析、廣告識別碼或追蹤 SDK。</li>
+    <li>不蒐集定位資料。</li>
+    <li>不會將你的資料傳送給開發者或任何第三方伺服器。</li>
+  </ul>
+
+  <h2 lang="zh-Hant">4. 資訊的使用方式</h2>
+  <p lang="zh-Hant">資訊僅用於：</p>
+  <ul lang="zh-Hant">
+    <li>透過 Google 驗證你的身分並維護你的啟用帳號清單。</li>
+    <li>依你的要求產生並寫入活動紀錄到 Google Fit。</li>
+    <li>在 App 內顯示你的 Run 歷史與狀態。</li>
+  </ul>
+  <p lang="zh-Hant">我們<strong>不會</strong>將你的資料用於廣告、建檔，或與上述功能無關的任何用途。</p>
+
+  <h2 lang="zh-Hant">5. Google API 服務 — Limited Use 聲明</h2>
+  <p lang="zh-Hant">APBFit 對於透過 Google API 取得之資訊的使用，遵循
+  <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>，
+  包含其 <strong>Limited Use（有限使用）</strong> 要求：</p>
+  <ul lang="zh-Hant">
+    <li>Google 使用者資料僅用於提供與改善本 App 所述功能（將活動寫入你的 Google Fit）。</li>
+    <li>我們不會將 Google 使用者資料轉移或販售給第三方、廣告聯播網、資料仲介，或用於廣告。</li>
+    <li>我們不會將 Google 使用者資料用於與功能無關的用途。</li>
+    <li>除非為了安全、法律遵循或經你明確同意，否則不會有任何人讀取你的 Google 使用者資料。</li>
+  </ul>
+
+  <h2 lang="zh-Hant">6. 資料儲存、保留與刪除</h2>
+  <ul lang="zh-Hant">
+    <li>App 歷史儲存於<strong>本機</strong>並自動清理：每次啟動時刪除超過 <strong>90 天</strong>的紀錄。</li>
+    <li>你可在 App 內清除歷史；<strong>移除安裝 APBFit 會刪除所有本機 App 資料</strong>。</li>
+    <li><strong>已寫入 Google Fit 的健身紀錄存在你的 Google 帳號</strong>中，不在 APBFit 內。若要刪除，請使用 Google Fit App 或你的 Google 帳號資料管理工具。</li>
+    <li>你可隨時透過 Google 帳號 →「安全性 → 第三方存取／已連結的應用程式」撤銷 APBFit 的存取，或在 App 內登出。</li>
+  </ul>
+
+  <h2 lang="zh-Hant">7. 資料分享</h2>
+  <p lang="zh-Hant">我們<strong>不會</strong>將你的資料分享給第三方。本 App 僅在必要時與 <strong>Google 服務</strong>交換資料，以完成登入並把健身紀錄寫入你自己的 Google Fit 帳號。</p>
+
+  <h2 lang="zh-Hant">8. 安全性</h2>
+  <ul lang="zh-Hant">
+    <li>APBFit 依賴 Android 的 App 沙箱與 Google 的已驗證 API。</li>
+    <li>App 不儲存任何帳密；驗證由 Google 登入／Google Play 服務處理。</li>
+  </ul>
+
+  <h2 lang="zh-Hant">9. 兒童隱私</h2>
+  <p lang="zh-Hant">APBFit 並非以未滿 13 歲（或你所在地區之等同最低年齡）之兒童為對象，亦不會在知情下蒐集其資料。</p>
+
+  <h2 lang="zh-Hant">10. 存取限制（測試階段）</h2>
+  <p lang="zh-Hant">APBFit 目前使用處於 <strong>Testing</strong> 模式的 Google OAuth 設定。僅被加入為 <strong>test users</strong> 的 Google 帳號可登入並使用 Google Fit 功能。</p>
+
+  <h2 lang="zh-Hant">11. 政策變更</h2>
+  <p lang="zh-Hant">我們可能不時更新本隱私權政策。重大變更會以上方「最後更新」日期反映。</p>
+
+  <h2 lang="zh-Hant">12. 聯絡</h2>
+  <p lang="zh-Hant">如對本隱私權政策或你的資料有任何疑問，請聯絡：<a href="mailto:pixson.lin@gmail.com">pixson.lin@gmail.com</a>。</p>
+</body>
+</html>
