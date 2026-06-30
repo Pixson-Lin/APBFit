@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Matches APP_Icon spec: gradient center #D774F7 (see assets/pictures/APP_Icon.png). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="270"
+        android:centerColor="#D774F7"
+        android:endColor="#7C4DDF"
+        android:startColor="#E8B4FC"
+        android:type="linear" />
+</shape>
