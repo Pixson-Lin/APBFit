@@ -15,10 +15,14 @@ import com.pixsonlin.apbfit.data.repository.RunRepository
 import com.pixsonlin.apbfit.domain.CheckStatus
 import com.pixsonlin.apbfit.domain.CompactEnvironmentState
 import com.pixsonlin.apbfit.domain.EnvironmentChecker
+import com.pixsonlin.apbfit.BuildConfig
 import com.pixsonlin.apbfit.domain.PreflightException
 import com.pixsonlin.apbfit.domain.SessionPreflight
 import com.pixsonlin.apbfit.domain.fit.FailingFitWriter
 import com.pixsonlin.apbfit.domain.fit.FitWriter
+import com.pixsonlin.apbfit.domain.fit.HealthConnectDebugReadback
+import com.pixsonlin.apbfit.domain.fit.HealthConnectPermissionRepository
+import com.pixsonlin.apbfit.domain.fit.HealthConnectPermissions
 import com.pixsonlin.apbfit.domain.fit.SegmentGenerator
 import com.pixsonlin.apbfit.service.RunServiceStarter
 import com.pixsonlin.apbfit.service.RunSessionStateHolder
@@ -78,8 +82,11 @@ class HomeViewModel @Inject constructor(
     private val segmentGenerator: SegmentGenerator,
     private val environmentChecker: EnvironmentChecker,
     private val sessionPreflight: SessionPreflight,
+    private val healthConnectPermissionRepository: HealthConnectPermissionRepository,
+    private val healthConnectDebugReadback: HealthConnectDebugReadback,
     private val uiStrings: UiStrings,
 ) : ViewModel() {
+    private var pendingHealthConnectPermissionAction: (suspend () -> Unit)? = null
     private val statusMessage = MutableStateFlow<String?>(null)
     private val isBusy = MutableStateFlow(false)
     private val selectedIntensity = MutableStateFlow(IntensityLevel.BRISK_WALK)
@@ -161,6 +168,13 @@ class HomeViewModel @Inject constructor(
             loadSavedRunConfig()
             refreshEnvironmentChecks()
             recoverStaleRunIfNeeded(showMessage = false)
+        }
+        viewModelScope.launch {
+            runSessionStateHolder.state.collect { state ->
+                if (!state.session.isActive) {
+                    healthConnectDebugReadback.setDebugRunActive(false)
+                }
+            }
         }
     }
 
@@ -265,37 +279,47 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun startRun() {
+    fun startRun(requestHealthConnectPermissions: (Set<String>) -> Unit = {}) {
         viewModelScope.launch {
             isBusy.value = true
-            runCatching {
-                val accounts = getEnabledAccountObjects()
-                if (accounts.isEmpty()) {
-                    throw IllegalStateException(
-                        uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_enabled_accounts),
-                    )
+            if (!launchHealthConnectPermissionsIfNeeded(requestHealthConnectPermissions) {
+                    performStartRun()
                 }
-                Log.d(TAG, "Start session requested for ${accounts.size} account(s)")
-                sessionPreflight.ensureAll(accounts).getOrThrow()
-                val accountIds = accounts.mapNotNull { it.id }
-                val result = runRepository.startSession(
-                    RunSessionConfig(
-                        durationMinutes = durationMinutes.value,
-                        intensityLevel = selectedIntensity.value,
-                        batchSize = batchSize.value,
-                    ),
-                    accountIds,
-                )
-                runRepository.planSegmentsForSession(result.sessionId)
-                Log.d(TAG, "Session rows created sessionId=${result.sessionId}, starting foreground service")
-                runServiceStarter.startSession(result.sessionId)
-            }.onSuccess {
-                statusMessage.value = null
-                Log.d(TAG, "Foreground service start requested successfully")
-            }.onFailure { error ->
-                handleStartSessionFailure(error, null)
+            ) {
+                isBusy.value = false
+                return@launch
             }
             isBusy.value = false
+        }
+    }
+
+    private suspend fun performStartRun() {
+        runCatching {
+            val accounts = getEnabledAccountObjects()
+            if (accounts.isEmpty()) {
+                throw IllegalStateException(
+                    uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_enabled_accounts),
+                )
+            }
+            Log.d(TAG, "Start session requested for ${accounts.size} account(s)")
+            sessionPreflight.ensureAll(accounts).getOrThrow()
+            val accountIds = accounts.mapNotNull { it.id }
+            val result = runRepository.startSession(
+                RunSessionConfig(
+                    durationMinutes = durationMinutes.value,
+                    intensityLevel = selectedIntensity.value,
+                    batchSize = batchSize.value,
+                ),
+                accountIds,
+            )
+            runRepository.planSegmentsForSession(result.sessionId)
+            Log.d(TAG, "Session rows created sessionId=${result.sessionId}, starting foreground service")
+            runServiceStarter.startSession(result.sessionId)
+        }.onSuccess {
+            statusMessage.value = null
+            Log.d(TAG, "Foreground service start requested successfully")
+        }.onFailure { error ->
+            handleStartSessionFailure(error, null)
         }
     }
 
@@ -348,84 +372,191 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun ensureDataSources() {
+    fun onHealthConnectPermissionResult(granted: Set<String>) {
         viewModelScope.launch {
-            isBusy.value = true
-            val accounts = getEnabledAccountObjects()
-            if (accounts.isEmpty()) {
-                statusMessage.value = uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_enabled_accounts)
+            val required = HealthConnectPermissions.requestPermissions
+            if (!granted.containsAll(required)) {
+                statusMessage.value = uiStrings.healthConnectPermissionsIncomplete
+                pendingHealthConnectPermissionAction = null
                 isBusy.value = false
                 return@launch
             }
-            val result = sessionPreflight.ensureAll(accounts)
-            statusMessage.value = result.fold(
-                onSuccess = { uiStrings.dataSourcesReady },
-                onFailure = {
-                    when (it) {
-                        is PreflightException -> uiStrings.preflightFailed(it.accountEmail, it.message)
-                        else -> it.message ?: uiStrings.dataSourceSetupFailed
+            statusMessage.value = uiStrings.healthConnectPermissionsUpdated
+            val action = pendingHealthConnectPermissionAction
+            pendingHealthConnectPermissionAction = null
+            if (action != null) {
+                isBusy.value = true
+                runCatching { action() }
+                    .onFailure { error ->
+                        healthConnectDebugReadback.setDebugRunActive(false)
+                        handleStartSessionFailure(error, null)
                     }
-                },
-            )
-            isBusy.value = false
+                isBusy.value = false
+            }
+            refreshEnvironmentChecks()
         }
     }
 
-    fun writeTestBatch() {
+    fun ensureDataSources(requestHealthConnectPermissions: (Set<String>) -> Unit = {}) {
         viewModelScope.launch {
             isBusy.value = true
-            val account = getEnabledAccountObjects().firstOrNull()
-                ?: run {
-                    statusMessage.value = uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_enabled_accounts)
-                    isBusy.value = false
-                    return@launch
+            if (!launchHealthConnectPermissionsIfNeeded(requestHealthConnectPermissions) {
+                    performEnsureDataSources()
                 }
-            val now = System.currentTimeMillis()
-            val segment = segmentGenerator.generate(
-                index = 0,
-                startMillis = now - 30_000L,
-                level = IntensityLevel.BRISK_WALK,
-            )
-            val result = fitWriter.writeSegments(account, listOf(segment))
-            statusMessage.value = result.fold(
-                onSuccess = { uiStrings.testBatchWritten(segment.steps) },
-                onFailure = { it.message ?: uiStrings.writeFailed },
-            )
-            isBusy.value = false
-        }
-    }
-
-    fun startDebugRun(forceFailNextWrite: Boolean = false) {
-        viewModelScope.launch {
-            isBusy.value = true
-            runCatching {
-                val accounts = accountRepository.getKnownAccounts().take(DEBUG_SESSION_ACCOUNT_COUNT)
-                if (accounts.size < DEBUG_SESSION_ACCOUNT_COUNT) {
-                    throw IllegalStateException(uiStrings.debugRequiresTwoAccounts)
-                }
-                val accountIds = accounts.mapNotNull { it.id }
-                if (accountIds.size < DEBUG_SESSION_ACCOUNT_COUNT) {
-                    throw IllegalStateException(uiStrings.debugRequiresTwoAccounts)
-                }
-                sessionPreflight.ensureAll(accounts).getOrThrow()
-                val result = runRepository.startSession(
-                    RunSessionConfig(
-                        durationMinutes = DEBUG_RUN_DURATION_MINUTES,
-                        intensityLevel = IntensityLevel.BRISK_WALK,
-                        batchSize = 1,
-                    ),
-                    accountIds,
-                )
-                val forceFailRunId = if (forceFailNextWrite) result.runs.first().runId else null
-                runRepository.planSegmentsForSession(result.sessionId)
-                runServiceStarter.startSession(result.sessionId, forceFailRunId)
-            }.onSuccess {
-                statusMessage.value = uiStrings.debugRunStarted
-            }.onFailure { error ->
-                handleStartSessionFailure(error, null)
+            ) {
+                isBusy.value = false
+                return@launch
             }
             isBusy.value = false
         }
+    }
+
+    private suspend fun performEnsureDataSources() {
+        val accounts = getEnabledAccountObjects()
+        if (accounts.isEmpty()) {
+            statusMessage.value = uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_enabled_accounts)
+            return
+        }
+        val result = sessionPreflight.ensureAll(accounts)
+        statusMessage.value = result.fold(
+            onSuccess = { uiStrings.dataSourcesReady },
+            onFailure = {
+                when (it) {
+                    is PreflightException -> uiStrings.preflightFailed(it.accountEmail, it.message)
+                    else -> it.message ?: uiStrings.dataSourceSetupFailed
+                }
+            },
+        )
+    }
+
+    fun writeTestBatch(requestHealthConnectPermissions: (Set<String>) -> Unit = {}) {
+        viewModelScope.launch {
+            isBusy.value = true
+            if (!launchHealthConnectPermissionsIfNeeded(requestHealthConnectPermissions) {
+                    performWriteTestBatch()
+                }
+            ) {
+                isBusy.value = false
+                return@launch
+            }
+            isBusy.value = false
+        }
+    }
+
+    private var testBatchWriteCounter = 0
+
+    private suspend fun performWriteTestBatch() {
+        val account = getEnabledAccountObjects().firstOrNull()
+            ?: run {
+                statusMessage.value = uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_enabled_accounts)
+                return
+            }
+        testBatchWriteCounter++
+        val maxSegmentDurationMs = (SegmentGenerator.MAX_DURATION_SEC_EXCLUSIVE - 1) * 1_000L
+        // Segment duration is 25–35s; start must be far enough in the past so endTime <= now.
+        // Shift each test write back by 2 minutes to avoid HC StepsRecord overlap (same dataOrigin).
+        val pastOffsetMs = testBatchWriteCounter * 120_000L
+        val startMillis = System.currentTimeMillis() - 5_000L - maxSegmentDurationMs - pastOffsetMs
+        val segment = segmentGenerator.generate(
+            index = 0,
+            startMillis = startMillis,
+            level = IntensityLevel.BRISK_WALK,
+        )
+        val result = fitWriter.writeSegments(account, listOf(segment))
+        statusMessage.value = result.fold(
+            onSuccess = { uiStrings.testBatchWritten(segment.steps) },
+            onFailure = { it.message ?: uiStrings.writeFailed },
+        )
+    }
+
+    fun startDebugRun(
+        forceFailNextWrite: Boolean = false,
+        requestHealthConnectPermissions: (Set<String>) -> Unit = {},
+    ) {
+        viewModelScope.launch {
+            isBusy.value = true
+            if (!launchHealthConnectPermissionsIfNeeded(requestHealthConnectPermissions) {
+                    performStartDebugRun(forceFailNextWrite)
+                }
+            ) {
+                isBusy.value = false
+                return@launch
+            }
+            isBusy.value = false
+        }
+    }
+
+    private suspend fun performStartDebugRun(forceFailNextWrite: Boolean) {
+        runCatching {
+            healthConnectDebugReadback.setDebugRunActive(true)
+            val accounts = resolveDebugRunAccounts()
+            sessionPreflight.ensureAll(accounts).getOrThrow()
+            val accountIds = accounts.mapNotNull { it.id }
+            val result = runRepository.startSession(
+                RunSessionConfig(
+                    durationMinutes = DEBUG_RUN_DURATION_MINUTES,
+                    intensityLevel = IntensityLevel.BRISK_WALK,
+                    batchSize = 1,
+                ),
+                accountIds,
+            )
+            val forceFailRunId = if (forceFailNextWrite) result.runs.first().runId else null
+            runRepository.planSegmentsForSession(result.sessionId)
+            runServiceStarter.startSession(result.sessionId, forceFailRunId)
+            Log.d(TAG, "Debug run started sessionId=${result.sessionId} accounts=${accountIds.size}")
+        }.onSuccess {
+            statusMessage.value = if (BuildConfig.USE_HEALTH_CONNECT_WRITER) {
+                uiStrings.debugHcRunStarted
+            } else {
+                uiStrings.debugRunStarted
+            }
+        }.onFailure { error ->
+            healthConnectDebugReadback.setDebugRunActive(false)
+            handleStartSessionFailure(error, null)
+        }
+    }
+
+    /**
+     * Google Fit debug path keeps the legacy two-account session.
+     * Health Connect debug only needs one enabled account (device-scoped writes).
+     */
+    private suspend fun resolveDebugRunAccounts(): List<GoogleSignInAccount> {
+        if (healthConnectPermissionRepository.isHealthConnectWriterActive()) {
+            val enabled = getEnabledAccountObjects()
+            if (enabled.isEmpty()) {
+                throw IllegalStateException(
+                    uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_enabled_accounts),
+                )
+            }
+            return listOf(enabled.first())
+        }
+        val accounts = accountRepository.getKnownAccounts().take(DEBUG_SESSION_ACCOUNT_COUNT)
+        if (accounts.size < DEBUG_SESSION_ACCOUNT_COUNT) {
+            throw IllegalStateException(uiStrings.debugRequiresTwoAccounts)
+        }
+        return accounts
+    }
+
+    private suspend fun launchHealthConnectPermissionsIfNeeded(
+        requestHealthConnectPermissions: (Set<String>) -> Unit,
+        deferredAction: suspend () -> Unit,
+    ): Boolean {
+        if (!healthConnectPermissionRepository.isHealthConnectWriterActive()) {
+            deferredAction()
+            return true
+        }
+        if (!healthConnectPermissionRepository.isSdkAvailable()) {
+            statusMessage.value = uiStrings.healthConnectUnavailable
+            return false
+        }
+        if (healthConnectPermissionRepository.hasAllPermissions()) {
+            deferredAction()
+            return true
+        }
+        pendingHealthConnectPermissionAction = deferredAction
+        statusMessage.value = uiStrings.healthConnectPermissionsPrompt
+        requestHealthConnectPermissions(HealthConnectPermissions.requestPermissions)
+        return false
     }
 
     private suspend fun handleStartSessionFailure(error: Throwable, createdSessionId: String?) {

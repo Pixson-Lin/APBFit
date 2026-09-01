@@ -1,6 +1,7 @@
 package com.pixsonlin.apbfit.domain
 
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.pixsonlin.apbfit.BuildConfig
 import com.pixsonlin.apbfit.data.repository.AccountRepository
 import com.pixsonlin.apbfit.domain.fit.FitWriter
 import javax.inject.Inject
@@ -20,7 +21,9 @@ class SessionPreflight @Inject constructor(
             return Result.failure(IllegalStateException("No accounts to preflight."))
         }
         for (account in accounts) {
-            if (!accountRepository.hasFitnessPermissions(account)) {
+            if (!BuildConfig.USE_HEALTH_CONNECT_WRITER &&
+                !accountRepository.hasFitnessPermissions(account)
+            ) {
                 return Result.failure(
                     PreflightException(
                         accountEmail = account.email.orEmpty(),

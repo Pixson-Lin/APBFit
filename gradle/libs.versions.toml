@@ -17,6 +17,8 @@ junit = "4.13.2"
 robolectric = "4.14.1"
 junitVersion = "1.2.1"
 espressoCore = "3.6.1"
+healthConnect = "1.1.0-alpha12"
+healthConnectTesting = "1.0.0-alpha03"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -46,6 +48,8 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+health-connect-client = { group = "androidx.health.connect", name = "connect-client", version.ref = "healthConnect" }
+health-connect-testing = { group = "androidx.health.connect", name = "connect-testing", version.ref = "healthConnectTesting" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

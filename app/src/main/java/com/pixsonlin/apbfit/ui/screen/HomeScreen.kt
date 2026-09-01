@@ -49,6 +49,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.health.connect.client.PermissionController
 import com.pixsonlin.apbfit.BuildConfig
 import com.pixsonlin.apbfit.R
 import com.pixsonlin.apbfit.data.model.IntensityLevel
@@ -93,6 +94,16 @@ fun HomeScreen(
         viewModel.refreshEnvironmentChecks()
     }
 
+    val healthConnectPermissionLauncher = rememberLauncherForActivityResult(
+        contract = PermissionController.createRequestPermissionResultContract(),
+    ) { granted ->
+        viewModel.onHealthConnectPermissionResult(granted)
+    }
+
+    val requestHealthConnectPermissions: (Set<String>) -> Unit = { permissions ->
+        healthConnectPermissionLauncher.launch(permissions)
+    }
+
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -129,7 +140,7 @@ fun HomeScreen(
         )
 
         Button(
-            onClick = viewModel::startRun,
+            onClick = { viewModel.startRun(requestHealthConnectPermissions) },
             enabled = uiState.canStartRun,
             modifier = Modifier
                 .fillMaxWidth()
@@ -189,22 +200,28 @@ fun HomeScreen(
             },
         )
 
-        if (BuildConfig.DEBUG) {
-            DebugPanel(
-                isBusy = uiState.isBusy,
-                onStartDebugRun = { viewModel.startDebugRun() },
-                onStartForceFailRun = { viewModel.startDebugRun(forceFailNextWrite = true) },
-                onEnsureDataSources = viewModel::ensureDataSources,
-                onWriteTestBatch = viewModel::writeTestBatch,
-                onTestInjectedFailure = viewModel::testInjectedFailure,
-            )
-        }
-
         uiState.statusMessage?.let { message ->
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 8.dp),
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+
+        if (BuildConfig.DEBUG) {
+            DebugPanel(
+                isBusy = uiState.isBusy,
+                onStartDebugRun = { viewModel.startDebugRun(requestHealthConnectPermissions = requestHealthConnectPermissions) },
+                onStartForceFailRun = {
+                    viewModel.startDebugRun(
+                        forceFailNextWrite = true,
+                        requestHealthConnectPermissions = requestHealthConnectPermissions,
+                    )
+                },
+                onEnsureDataSources = { viewModel.ensureDataSources(requestHealthConnectPermissions) },
+                onWriteTestBatch = { viewModel.writeTestBatch(requestHealthConnectPermissions) },
+                onTestInjectedFailure = viewModel::testInjectedFailure,
             )
         }
     }

@@ -34,6 +34,9 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // Toggle to true locally or via the healthConnect build type to exercise HC writes.
+        buildConfigField("boolean", "USE_HEALTH_CONNECT_WRITER", "false")
     }
 
     signingConfigs {
@@ -48,6 +51,11 @@ android {
     }
 
     buildTypes {
+        create("healthConnect") {
+            initWith(getByName("debug"))
+            buildConfigField("boolean", "USE_HEALTH_CONNECT_WRITER", "true")
+            matchingFallbacks += listOf("debug")
+        }
         release {
             isMinifyEnabled = false
             // Upload keystore for Play (gitignored keystore.properties); falls back to debug when absent.
@@ -106,8 +114,10 @@ dependencies {
     implementation(libs.play.services.fitness)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.health.connect.client)
 
     testImplementation(libs.junit)
+    testImplementation(libs.health.connect.testing)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     androidTestImplementation(libs.androidx.junit)

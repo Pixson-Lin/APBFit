@@ -154,11 +154,16 @@
     <string name="msg_fit_permissions_updated">Google Fit 權限已更新。</string>
     <string name="error_fit_permissions_incomplete">Google Fit 權限不完整，請重新選擇帳號並允許所有要求的存取。</string>
     <string name="error_fit_permission_cancelled">已取消 Google Fit 權限要求。</string>
+    <string name="msg_health_connect_permissions_updated">Health Connect 權限已更新。</string>
+    <string name="error_health_connect_permissions_incomplete">Health Connect 權限不完整，請允許步數讀寫與距離、運動寫入。</string>
+    <string name="error_health_connect_unavailable">Health Connect 不可用，請確認已安裝並更新 Health Connect。</string>
+    <string name="msg_health_connect_permissions_prompt">請在 Health Connect 授權畫面允許所有權限。</string>
     <string name="msg_datasources_ready">DataSource 已就緒（已快取或已建立）。</string>
     <string name="error_datasource_setup_failed">DataSource 設定失敗。</string>
     <string name="error_write_failed">寫入失敗。</string>
     <string name="msg_test_batch_written">測試批次已寫入（%1$d 步）。</string>
     <string name="msg_debug_run_started">除錯 Run 已開始。</string>
+    <string name="msg_debug_hc_run_started">除錯 Run 已開始。約 30 秒後會寫入第一批步數；請查看通知列或 Health Connect。</string>
     <string name="msg_unexpected_success">非預期的成功。</string>
     <string name="msg_injected_failure">注入失敗：%1$s</string>
     <string name="error_run_not_found">找不到 Run。</string>
@@ -179,4 +184,7 @@
     <string name="content_desc_nav_home">返回首頁</string>
     <string name="content_desc_nav_history">歷史紀錄</string>
     <string name="content_desc_nav_settings">設定</string>
+
+    <string name="health_connect_permissions_rationale_title">Health Connect 權限</string>
+    <string name="health_connect_permissions_rationale_body">APBFit 需要寫入步數、距離與運動紀錄至 Health Connect，以便在本機儲存模擬跑步資料。Health Connect 僅在本裝置上同步，不提供跨裝置雲端同步。</string>
 </resources>
