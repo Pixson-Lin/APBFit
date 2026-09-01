@@ -27,8 +27,8 @@ android {
         applicationId = "com.pixsonlin.apbfit"
         minSdk = 31
         targetSdk = 35
-        versionCode = 26063001
-        versionName = "1.3.20260630"
+        versionCode = 26090101
+        versionName = "1.4.20260901"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

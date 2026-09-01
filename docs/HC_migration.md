@@ -119,7 +119,7 @@ These three decisions govern scope for the 9/4 milestone.
 ### Phase 0 — Review gate (now)
 
 - [V] Owner reviews this document and approves start.
-- [ ] Commit existing HC WIP on `feature/health-connect-writer`.
+- [V] Commit existing HC WIP on `feature/health-connect-writer`.
 
 ### Phase 1 — P0 app code (blocks 9/4 build)
 
@@ -156,11 +156,11 @@ These three decisions govern scope for the 9/4 milestone.
 
 ### Phase 3 — Compliance & distribution
 
-- Rewrite [APBFit_Privacy_Policy.md](APBFit_Privacy_Policy.md) and [docs/privacy/index.html](privacy/index.html) for HC.
-- Play Console: Health Connect data types + privacy policy link.
-- Update [docs/notes/Internal_test_notes.txt](notes/Internal_test_notes.txt): remove GF prerequisite; add HC permission steps; validation via HC / Pikmin.
-- Bump `versionCode` / `versionName`; upload Play internal build.
-- Notify testers to reinstall.
+- [V] Rewrite [APBFit_Privacy_Policy.md](APBFit_Privacy_Policy.md) and [docs/privacy/index.html](privacy/index.html) for HC.
+- [ ] Play Console: Health Connect data types + privacy policy link — see [notes/Play_Console_HC_declaration.md](notes/Play_Console_HC_declaration.md).
+- [V] Update [docs/notes/Internal_test_notes.txt](notes/Internal_test_notes.txt): remove GF prerequisite; add HC permission steps; validation via HC / Pikmin.
+- [V] Bump `versionCode` / `versionName`; upload Play internal build.
+- [ ] Notify testers to reinstall (use updated `Internal_test_notes.txt`).
 
 ### Phase 4 — Docs & merge
 

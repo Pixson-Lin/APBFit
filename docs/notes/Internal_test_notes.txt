@@ -1,27 +1,39 @@
-📱 APBFit 內部測試邀請
+📱 APBFit 內部測試邀請（Health Connect 版）
 
 哈囉，感謝願意幫忙測試我開發的 APBFit！
-這是一款把「模擬步行／跑步」資料寫入 Google Fit 的 Android App（Google Play 內部測試版）。
+這是一款把「模擬步行／跑步」資料寫入 Health Connect 的 Android App（Google Play 內部測試版）。
+
+⚠️ 重要：此版本已改為 Health Connect 寫入，不再使用 Google Fit。若你裝過舊版，請先解除安裝再從 Play 重新安裝。
 
 【安裝步驟】
 1️⃣ 用手機開啟下面連結（請用我登記的那組 Gmail 帳號）：
 https://play.google.com/apps/internaltest/4701168678750706823
 
 2️⃣ 點「成為測試人員」
-3️⃣ 在 Play 商店頁面點「安裝」
+3️⃣ 在 Play 商店頁面點「安裝」（或「更新」）
+
+【安裝前準備】
+• Android 12 以上
+• 已安裝並更新 Health Connect（系統內建或 Play 商店安裝）
+• 不需安裝 Google Fit
 
 【小提醒】
 • 手機若有多組 Google 帳號，請確認 Play 用的是我登記的那組
 • App 不會出現在商店搜尋，一定要從上面的連結進入
-• 這是全新 App（com.pixsonlin.apbfit），不是舊版更新；若曾裝過舊版，請當成新安裝
-• 需 Android 12 以上、已安裝 Google Fit
+• 這是 com.pixsonlin.apbfit；舊版請解除安裝後再裝
 • 成為測試人員後若還沒看到安裝，等 5～10 分鐘再點一次連結
 
+【第一次使用】
+1. 開啟 APBFit → 使用 Google 登入
+2. 依提示授權 Health Connect（步數讀寫、距離寫入、運動寫入）
+3. 首頁環境圖示「Health Connect」應為綠色（正常）後再按 RUN
+
 【請幫忙試這幾項】
-1. Google 登入與 Fit 授權
-2. 開始一次 Run，確認 Google Fit 有寫入步數
-3. （可選）關螢幕幾分鐘後再開，看是否仍有寫入
+1. Google 登入 + Health Connect 權限授權
+2. 開始一次 Run，確認 Health Connect App 內有步數／距離／運動紀錄
+3. （可選）用 Pikmin Bloom 等支援 HC 的 App 確認能讀到步數
+4. （可選）關螢幕幾分鐘後再開，看是否仍有寫入
 
 登入若失敗，可能是測試帳號尚未開通，請跟我說，我會在後台補登記。
 
-有問題、閃退或登入錯誤，歡迎直接回覆或寫信：pixson.srv@gmail.com
+有問題、閃退或權限錯誤，歡迎直接回覆或寫信：pixson.srv@gmail.com
