@@ -14,6 +14,11 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * @deprecated Google Fit write path is superseded by [HealthConnectWriter].
+ * Retained until Phase 2 removal; do not use for new features.
+ */
+@Deprecated("Use HealthConnectWriter. Scheduled for removal in HC migration Phase 2.")
 @Singleton
 class GoogleFitWriter @Inject constructor(
     @ApplicationContext private val context: Context,

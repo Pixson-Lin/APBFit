@@ -26,6 +26,10 @@ class AccountPrefs @Inject constructor(
         prefs.edit().putStringSet(KEY_KNOWN_ACCOUNT_IDS, updated).apply()
     }
 
+    fun setKnownAccountIds(accountIds: Set<String>) {
+        prefs.edit().putStringSet(KEY_KNOWN_ACCOUNT_IDS, accountIds.toSet()).apply()
+    }
+
     fun removeKnownAccountId(accountId: String) {
         val updated = getKnownAccountIds().toMutableSet()
         updated.remove(accountId)

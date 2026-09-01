@@ -5,17 +5,16 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.pixsonlin.apbfit.BuildConfig
 import com.pixsonlin.apbfit.data.model.IntensityLevel
 import com.pixsonlin.apbfit.data.model.RunAlreadyActiveException
 import com.pixsonlin.apbfit.data.model.RunSessionConfig
-import com.pixsonlin.apbfit.data.prefs.EnabledAccountsPrefs
 import com.pixsonlin.apbfit.data.prefs.RunConfigPrefs
 import com.pixsonlin.apbfit.data.repository.AccountRepository
 import com.pixsonlin.apbfit.data.repository.RunRepository
 import com.pixsonlin.apbfit.domain.CheckStatus
 import com.pixsonlin.apbfit.domain.CompactEnvironmentState
 import com.pixsonlin.apbfit.domain.EnvironmentChecker
-import com.pixsonlin.apbfit.BuildConfig
 import com.pixsonlin.apbfit.domain.PreflightException
 import com.pixsonlin.apbfit.domain.SessionPreflight
 import com.pixsonlin.apbfit.domain.fit.FailingFitWriter
@@ -39,8 +38,7 @@ import javax.inject.Inject
 import kotlin.math.roundToInt
 
 data class HomeUiState(
-    val enabledAccounts: List<EnabledAccountSummary> = emptyList(),
-    val accountEditItems: List<AccountEditItem> = emptyList(),
+    val signedInEmail: String? = null,
     val environmentIcons: CompactEnvironmentState = CompactEnvironmentState(
         battery = CheckStatus.WARN,
         fit = CheckStatus.WARN,
@@ -56,18 +54,6 @@ data class HomeUiState(
     val startBlockedReason: String? = null,
     val isSessionActive: Boolean = false,
     val isConfigLocked: Boolean = false,
-    val showAccountEditSheet: Boolean = false,
-)
-
-data class EnabledAccountSummary(
-    val id: String,
-    val email: String,
-)
-
-data class AccountEditItem(
-    val id: String,
-    val email: String,
-    val isEnabled: Boolean,
 )
 
 @HiltViewModel
@@ -76,7 +62,6 @@ class HomeViewModel @Inject constructor(
     private val runRepository: RunRepository,
     private val runServiceStarter: RunServiceStarter,
     private val runSessionStateHolder: RunSessionStateHolder,
-    private val enabledAccountsPrefs: EnabledAccountsPrefs,
     private val runConfigPrefs: RunConfigPrefs,
     private val fitWriter: FitWriter,
     private val segmentGenerator: SegmentGenerator,
@@ -92,8 +77,6 @@ class HomeViewModel @Inject constructor(
     private val selectedIntensity = MutableStateFlow(IntensityLevel.BRISK_WALK)
     private val durationMinutes = MutableStateFlow(DEFAULT_DURATION_MINUTES)
     private val batchSize = MutableStateFlow(DEFAULT_BATCH_SIZE)
-    private val enabledAccountIds = MutableStateFlow(emptySet<String>())
-    private val showAccountEditSheet = MutableStateFlow(false)
     private val environmentIcons = MutableStateFlow(
         CompactEnvironmentState(
             battery = CheckStatus.WARN,
@@ -106,12 +89,10 @@ class HomeViewModel @Inject constructor(
     val uiState: StateFlow<HomeUiState> = combine(
         combine(
             accountRepository.accountRevision,
-            enabledAccountIds,
             statusMessage,
             isBusy,
-            showAccountEditSheet,
-        ) { _, enabledIds, status, busy, showSheet ->
-            AccountSnapshotPartial(enabledIds, status, busy, showSheet)
+        ) { _, status, busy ->
+            AccountSnapshotPartial(status, busy)
         },
         combine(
             environmentIcons,
@@ -123,25 +104,14 @@ class HomeViewModel @Inject constructor(
             ConfigSnapshot(intensity, duration, batch, sessionActive, envIcons)
         },
     ) { accountPartial, config ->
-        val knownAccounts = accountRepository.getKnownAccounts()
-        val enabledSummaries = knownAccounts
-            .filter { it.id in accountPartial.enabledIds }
-            .map { EnabledAccountSummary(it.id.orEmpty(), it.email.orEmpty()) }
-        val editItems = knownAccounts.map { account ->
-            AccountEditItem(
-                id = account.id.orEmpty(),
-                email = account.email.orEmpty(),
-                isEnabled = account.id in accountPartial.enabledIds,
-            )
-        }
+        val signedInEmail = accountRepository.activeAccount.value?.email
         val envReady = isEnvironmentReadyForRun(config.envIcons)
-        val canStart = enabledSummaries.isNotEmpty() &&
+        val canStart = signedInEmail != null &&
             !accountPartial.busy &&
             !config.sessionActive &&
             envReady
         HomeUiState(
-            enabledAccounts = enabledSummaries,
-            accountEditItems = editItems,
+            signedInEmail = signedInEmail,
             environmentIcons = config.envIcons,
             selectedIntensity = config.intensity,
             durationMinutes = config.duration,
@@ -151,20 +121,17 @@ class HomeViewModel @Inject constructor(
             canStartRun = canStart,
             startBlockedReason = when {
                 config.sessionActive -> uiStrings.get(com.pixsonlin.apbfit.R.string.start_run_blocked_session_active)
-                enabledSummaries.isEmpty() -> uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_enabled_accounts)
+                signedInEmail == null -> uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_signed_in_account)
                 !envReady -> uiStrings.get(com.pixsonlin.apbfit.R.string.start_run_blocked)
                 else -> null
             },
             isSessionActive = config.sessionActive,
             isConfigLocked = config.sessionActive,
-            showAccountEditSheet = accountPartial.showSheet,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
     init {
         viewModelScope.launch {
-            migrateEnabledAccountsIfNeeded()
-            enabledAccountIds.value = enabledAccountsPrefs.getEnabledAccountIds()
             loadSavedRunConfig()
             refreshEnvironmentChecks()
             recoverStaleRunIfNeeded(showMessage = false)
@@ -179,10 +146,11 @@ class HomeViewModel @Inject constructor(
     }
 
     fun refreshEnvironmentChecks() {
-        environmentIcons.value = environmentChecker.evaluateCompact(
-            enabledAccounts = getEnabledAccountObjects(),
-            fitnessOptions = accountRepository.fitnessOptions,
-        )
+        viewModelScope.launch {
+            environmentIcons.value = environmentChecker.evaluateCompact(
+                hasSignedInAccount = accountRepository.hasActiveAccount(),
+            )
+        }
     }
 
     fun setIntensity(level: IntensityLevel) {
@@ -205,76 +173,14 @@ class HomeViewModel @Inject constructor(
         persistRunConfig()
     }
 
-    fun openAccountEditSheet() {
-        if (uiState.value.isConfigLocked) return
-        showAccountEditSheet.value = true
-    }
-
-    fun dismissAccountEditSheet() {
-        showAccountEditSheet.value = false
-    }
-
-    fun setAccountEnabled(accountId: String, enabled: Boolean) {
-        if (uiState.value.isConfigLocked) return
-        if (!enabled && accountId in enabledAccountIds.value && enabledAccountIds.value.size <= 1) {
-            statusMessage.value = uiStrings.get(com.pixsonlin.apbfit.R.string.error_cannot_disable_last_account)
-            return
-        }
-        val updated = enabledAccountIds.value.toMutableSet()
-        if (enabled) {
-            updated.add(accountId)
-        } else {
-            updated.remove(accountId)
-        }
-        persistEnabledAccounts(updated)
-    }
-
-    fun signOutAccount(accountId: String) {
+    fun signOut() {
         if (uiState.value.isSessionActive) {
             statusMessage.value = uiStrings.cannotSignOutDuringRun
             return
         }
         viewModelScope.launch {
-            val result = accountRepository.signOutAccount(accountId)
-            result.onSuccess {
-                val updated = enabledAccountIds.value.toMutableSet()
-                updated.remove(accountId)
-                persistEnabledAccounts(updated)
-                statusMessage.value = uiStrings.signedOut
-                refreshEnvironmentChecks()
-            }.onFailure {
-                statusMessage.value = it.message ?: uiStrings.accountNotAvailable
-            }
-        }
-    }
-
-    fun launchAddAccount(launchIntent: (Intent) -> Unit) {
-        viewModelScope.launch {
-            isBusy.value = true
-            runCatching {
-                accountRepository.getAddAccountIntent()
-            }.onSuccess { intent ->
-                launchIntent(intent)
-            }.onFailure {
-                statusMessage.value = it.message ?: uiStrings.signInFailed
-            }
-            isBusy.value = false
-        }
-    }
-
-    fun onAddAccountResult(data: Intent?) {
-        viewModelScope.launch {
-            val result = accountRepository.handleSignInResult(data)
-            result.onSuccess { account ->
-                account.id?.let { id ->
-                    val updated = enabledAccountIds.value.toMutableSet()
-                    updated.add(id)
-                    persistEnabledAccounts(updated)
-                }
-                statusMessage.value = uiStrings.addedAccount(account.email.orEmpty())
-            }.onFailure {
-                statusMessage.value = it.message ?: uiStrings.signInFailed
-            }
+            accountRepository.signOutCurrentAccount()
+            statusMessage.value = uiStrings.signedOut
             refreshEnvironmentChecks()
         }
     }
@@ -295,15 +201,10 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun performStartRun() {
         runCatching {
-            val accounts = getEnabledAccountObjects()
-            if (accounts.isEmpty()) {
-                throw IllegalStateException(
-                    uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_enabled_accounts),
-                )
-            }
-            Log.d(TAG, "Start session requested for ${accounts.size} account(s)")
-            sessionPreflight.ensureAll(accounts).getOrThrow()
-            val accountIds = accounts.mapNotNull { it.id }
+            val account = requireActiveAccount()
+            Log.d(TAG, "Start session requested for account=${account.email}")
+            sessionPreflight.ensureAll(listOf(account)).getOrThrow()
+            val accountIds = listOfNotNull(account.id)
             val result = runRepository.startSession(
                 RunSessionConfig(
                     durationMinutes = durationMinutes.value,
@@ -339,36 +240,26 @@ class HomeViewModel @Inject constructor(
 
     fun batteryOptimizationIntent(): Intent = environmentChecker.batteryOptimizationIntent()
 
-    fun googleFitIntent(): Intent = environmentChecker.googleFitIntent()
-
     fun notificationSettingsIntent(): Intent = environmentChecker.notificationSettingsIntent()
 
     fun exactAlarmIntent(): Intent = environmentChecker.exactAlarmIntent()
 
-    fun onFitIconTap(
-        launchSignIn: (Intent) -> Unit,
+    fun onHealthConnectIconTap(
+        requestHealthConnectPermissions: (Set<String>) -> Unit,
         launchExternal: (Intent) -> Unit,
     ) {
-        if (!environmentChecker.isGoogleFitInstalled()) {
-            launchExternal(environmentChecker.googleFitIntent())
-        } else {
-            launchSignIn(accountRepository.getFitnessPermissionsIntent())
-        }
-    }
-
-    fun onFitnessPermissionResult(data: Intent?) {
         viewModelScope.launch {
-            val result = accountRepository.handleFitnessPermissionResult(data)
-            statusMessage.value = result.fold(
-                onSuccess = { uiStrings.fitPermissionsUpdated },
-                onFailure = {
-                    when {
-                        it is IllegalStateException -> uiStrings.fitPermissionsIncomplete
-                        else -> it.message ?: uiStrings.fitPermissionCancelled
-                    }
-                },
-            )
-            refreshEnvironmentChecks()
+            if (!healthConnectPermissionRepository.isSdkAvailable()) {
+                launchExternal(environmentChecker.healthConnectMarketIntent())
+                return@launch
+            }
+            if (!healthConnectPermissionRepository.hasAllPermissions()) {
+                pendingHealthConnectPermissionAction = null
+                statusMessage.value = uiStrings.healthConnectPermissionsPrompt
+                requestHealthConnectPermissions(HealthConnectPermissions.requestPermissions)
+            } else {
+                launchExternal(environmentChecker.healthConnectSettingsIntent())
+            }
         }
     }
 
@@ -412,12 +303,12 @@ class HomeViewModel @Inject constructor(
     }
 
     private suspend fun performEnsureDataSources() {
-        val accounts = getEnabledAccountObjects()
-        if (accounts.isEmpty()) {
-            statusMessage.value = uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_enabled_accounts)
+        val account = getActiveAccountOrNull()
+        if (account == null) {
+            statusMessage.value = uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_signed_in_account)
             return
         }
-        val result = sessionPreflight.ensureAll(accounts)
+        val result = sessionPreflight.ensureAll(listOf(account))
         statusMessage.value = result.fold(
             onSuccess = { uiStrings.dataSourcesReady },
             onFailure = {
@@ -446,15 +337,13 @@ class HomeViewModel @Inject constructor(
     private var testBatchWriteCounter = 0
 
     private suspend fun performWriteTestBatch() {
-        val account = getEnabledAccountObjects().firstOrNull()
+        val account = getActiveAccountOrNull()
             ?: run {
-                statusMessage.value = uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_enabled_accounts)
+                statusMessage.value = uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_signed_in_account)
                 return
             }
         testBatchWriteCounter++
         val maxSegmentDurationMs = (SegmentGenerator.MAX_DURATION_SEC_EXCLUSIVE - 1) * 1_000L
-        // Segment duration is 25–35s; start must be far enough in the past so endTime <= now.
-        // Shift each test write back by 2 minutes to avoid HC StepsRecord overlap (same dataOrigin).
         val pastOffsetMs = testBatchWriteCounter * 120_000L
         val startMillis = System.currentTimeMillis() - 5_000L - maxSegmentDurationMs - pastOffsetMs
         val segment = segmentGenerator.generate(
@@ -489,9 +378,9 @@ class HomeViewModel @Inject constructor(
     private suspend fun performStartDebugRun(forceFailNextWrite: Boolean) {
         runCatching {
             healthConnectDebugReadback.setDebugRunActive(true)
-            val accounts = resolveDebugRunAccounts()
-            sessionPreflight.ensureAll(accounts).getOrThrow()
-            val accountIds = accounts.mapNotNull { it.id }
+            val account = requireActiveAccount()
+            sessionPreflight.ensureAll(listOf(account)).getOrThrow()
+            val accountIds = listOfNotNull(account.id)
             val result = runRepository.startSession(
                 RunSessionConfig(
                     durationMinutes = DEBUG_RUN_DURATION_MINUTES,
@@ -503,7 +392,7 @@ class HomeViewModel @Inject constructor(
             val forceFailRunId = if (forceFailNextWrite) result.runs.first().runId else null
             runRepository.planSegmentsForSession(result.sessionId)
             runServiceStarter.startSession(result.sessionId, forceFailRunId)
-            Log.d(TAG, "Debug run started sessionId=${result.sessionId} accounts=${accountIds.size}")
+            Log.d(TAG, "Debug run started sessionId=${result.sessionId}")
         }.onSuccess {
             statusMessage.value = if (BuildConfig.USE_HEALTH_CONNECT_WRITER) {
                 uiStrings.debugHcRunStarted
@@ -514,27 +403,6 @@ class HomeViewModel @Inject constructor(
             healthConnectDebugReadback.setDebugRunActive(false)
             handleStartSessionFailure(error, null)
         }
-    }
-
-    /**
-     * Google Fit debug path keeps the legacy two-account session.
-     * Health Connect debug only needs one enabled account (device-scoped writes).
-     */
-    private suspend fun resolveDebugRunAccounts(): List<GoogleSignInAccount> {
-        if (healthConnectPermissionRepository.isHealthConnectWriterActive()) {
-            val enabled = getEnabledAccountObjects()
-            if (enabled.isEmpty()) {
-                throw IllegalStateException(
-                    uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_enabled_accounts),
-                )
-            }
-            return listOf(enabled.first())
-        }
-        val accounts = accountRepository.getKnownAccounts().take(DEBUG_SESSION_ACCOUNT_COUNT)
-        if (accounts.size < DEBUG_SESSION_ACCOUNT_COUNT) {
-            throw IllegalStateException(uiStrings.debugRequiresTwoAccounts)
-        }
-        return accounts
     }
 
     private suspend fun launchHealthConnectPermissionsIfNeeded(
@@ -588,9 +456,9 @@ class HomeViewModel @Inject constructor(
     fun testInjectedFailure() {
         viewModelScope.launch {
             isBusy.value = true
-            val account = getEnabledAccountObjects().firstOrNull()
+            val account = getActiveAccountOrNull()
             if (account == null) {
-                statusMessage.value = uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_enabled_accounts)
+                statusMessage.value = uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_signed_in_account)
                 isBusy.value = false
                 return@launch
             }
@@ -625,35 +493,20 @@ class HomeViewModel @Inject constructor(
         batchSize.value = saved.batchSize.coerceIn(MIN_BATCH_SIZE, MAX_BATCH_SIZE)
     }
 
-    private fun migrateEnabledAccountsIfNeeded() {
-        if (enabledAccountsPrefs.getEnabledAccountIds().isEmpty()) {
-            val allIds = accountRepository.getKnownAccounts().mapNotNull { it.id }.toSet()
-            if (allIds.isNotEmpty()) {
-                enabledAccountsPrefs.setEnabledAccountIds(allIds)
-            }
-        }
-    }
+    private fun getActiveAccountOrNull(): GoogleSignInAccount? = accountRepository.activeAccount.value
 
-    private fun persistEnabledAccounts(ids: Set<String>) {
-        enabledAccountIds.value = ids
-        enabledAccountsPrefs.setEnabledAccountIds(ids)
-        refreshEnvironmentChecks()
-    }
+    private fun requireActiveAccount(): GoogleSignInAccount =
+        getActiveAccountOrNull()
+            ?: throw IllegalStateException(
+                uiStrings.get(com.pixsonlin.apbfit.R.string.error_no_signed_in_account),
+            )
 
-    private fun getEnabledAccountObjects(): List<GoogleSignInAccount> {
-        val enabledIds = enabledAccountIds.value
-        return accountRepository.getKnownAccounts().filter { it.id in enabledIds }
-    }
-
-    private fun isEnvironmentReadyForRun(icons: CompactEnvironmentState): Boolean {
-        return icons.fit == CheckStatus.PASS
-    }
+    private fun isEnvironmentReadyForRun(icons: CompactEnvironmentState): Boolean =
+        icons.fit == CheckStatus.PASS
 
     private data class AccountSnapshotPartial(
-        val enabledIds: Set<String>,
         val status: String?,
         val busy: Boolean,
-        val showSheet: Boolean,
     )
 
     private data class ConfigSnapshot(
@@ -674,6 +527,5 @@ class HomeViewModel @Inject constructor(
         const val MAX_BATCH_SIZE = 10
         const val DEFAULT_BATCH_SIZE = 3
         private const val DEBUG_RUN_DURATION_MINUTES = 5
-        private const val DEBUG_SESSION_ACCOUNT_COUNT = 2
     }
 }

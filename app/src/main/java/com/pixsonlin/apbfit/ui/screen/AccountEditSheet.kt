@@ -21,8 +21,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.pixsonlin.apbfit.R
-import com.pixsonlin.apbfit.ui.viewmodel.AccountEditItem
 
+data class AccountEditItem(
+    val id: String,
+    val email: String,
+    val isEnabled: Boolean,
+)
+
+/**
+ * @deprecated Multi-account management removed in HC single-account cutover.
+ */
+@Deprecated("Single-account cutover. Scheduled for removal in HC migration Phase 2.")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountEditSheet(

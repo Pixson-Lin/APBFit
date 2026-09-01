@@ -5,6 +5,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * @deprecated Multi-account enable list removed in HC single-account cutover.
+ */
+@Deprecated("Single-account cutover. Scheduled for removal in HC migration Phase 2.")
 @Singleton
 class EnabledAccountsPrefs @Inject constructor(
     @ApplicationContext context: Context,

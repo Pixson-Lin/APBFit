@@ -9,9 +9,13 @@ import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
+import androidx.health.connect.client.HealthConnectClient
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.fitness.FitnessOptions
+import com.pixsonlin.apbfit.BuildConfig
+import com.pixsonlin.apbfit.domain.fit.HEALTH_CONNECT_PACKAGE
+import com.pixsonlin.apbfit.domain.fit.HealthConnectPermissionRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,46 +23,26 @@ import javax.inject.Singleton
 @Singleton
 class EnvironmentChecker @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val healthConnectPermissionRepository: HealthConnectPermissionRepository,
 ) {
     private val packageName: String = context.packageName
 
-    fun evaluate(
-        account: GoogleSignInAccount?,
-        fitnessOptions: FitnessOptions,
-    ): List<EnvironmentCheck> = listOf(
-        EnvironmentCheck(
-            id = EnvironmentCheckId.BATTERY_OPTIMIZATION,
-            status = if (isBatteryOptimizationDisabled()) CheckStatus.PASS else CheckStatus.WARN,
-        ),
-        EnvironmentCheck(
-            id = EnvironmentCheckId.GOOGLE_FIT_INSTALLED,
-            status = if (isGoogleFitInstalledInternal()) CheckStatus.PASS else CheckStatus.WARN,
-        ),
-        EnvironmentCheck(
-            id = EnvironmentCheckId.FITNESS_PERMISSIONS,
-            status = if (account != null && GoogleSignIn.hasPermissions(account, fitnessOptions)) {
-                CheckStatus.PASS
-            } else {
-                CheckStatus.WARN
-            },
-        ),
-        EnvironmentCheck(
-            id = EnvironmentCheckId.NOTIFICATIONS,
-            status = if (areNotificationsEnabled()) CheckStatus.PASS else CheckStatus.WARN,
-        ),
-        EnvironmentCheck(
-            id = EnvironmentCheckId.EXACT_ALARMS,
-            status = if (canScheduleExactAlarms()) CheckStatus.PASS else CheckStatus.WARN,
-        ),
-    )
-
-    fun evaluateCompact(
-        enabledAccounts: List<GoogleSignInAccount>,
-        fitnessOptions: FitnessOptions,
+    suspend fun evaluateCompact(
+        hasSignedInAccount: Boolean,
+        enabledAccounts: List<GoogleSignInAccount> = emptyList(),
+        fitnessOptions: FitnessOptions? = null,
     ): CompactEnvironmentState {
-        val fitPass = isGoogleFitInstalledInternal() &&
-            enabledAccounts.isNotEmpty() &&
-            enabledAccounts.all { GoogleSignIn.hasPermissions(it, fitnessOptions) }
+        val fitPass = if (BuildConfig.USE_HEALTH_CONNECT_WRITER) {
+            hasSignedInAccount &&
+                healthConnectPermissionRepository.isSdkAvailable() &&
+                healthConnectPermissionRepository.hasAllPermissions()
+        } else {
+            @Suppress("DEPRECATION")
+            isGoogleFitInstalledInternal() &&
+                enabledAccounts.isNotEmpty() &&
+                fitnessOptions != null &&
+                enabledAccounts.all { GoogleSignIn.hasPermissions(it, fitnessOptions) }
+        }
         return CompactEnvironmentState(
             battery = if (isBatteryOptimizationDisabled()) CheckStatus.PASS else CheckStatus.WARN,
             fit = if (fitPass) CheckStatus.PASS else CheckStatus.WARN,
@@ -82,11 +66,23 @@ class EnvironmentChecker @Inject constructor(
             appDetailsIntent()
         }
 
+    fun healthConnectSettingsIntent(): Intent =
+        Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+    fun healthConnectMarketIntent(): Intent =
+        Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$HEALTH_CONNECT_PACKAGE")).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+    @Deprecated("Google Fit is no longer the write path. Use healthConnectSettingsIntent().")
     fun googleFitIntent(): Intent =
         Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$GOOGLE_FIT_PACKAGE")).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
 
+    @Deprecated("Google Fit is no longer the write path.")
     fun isGoogleFitInstalled(): Boolean = isGoogleFitInstalledInternal()
 
     fun notificationSettingsIntent(): Intent =
@@ -112,6 +108,7 @@ class EnvironmentChecker @Inject constructor(
         return powerManager.isIgnoringBatteryOptimizations(packageName)
     }
 
+    @Deprecated("Google Fit is no longer the write path.")
     private fun isGoogleFitInstalledInternal(): Boolean {
         val packageManager = context.packageManager
         return try {

@@ -9,7 +9,7 @@
     <string name="nav_back">返回</string>
 
     <string name="sign_in_title">登入 APBFit</string>
-    <string name="sign_in_subtitle">連結具 Google Fit 存取權的 Google 帳號以開始使用。</string>
+    <string name="sign_in_subtitle">使用 Google 帳號登入，並授權 Health Connect 寫入步數與運動資料。</string>
     <string name="sign_in_with_google">使用 Google 登入</string>
 
     <string name="active_account_label">目前帳號：%1$s</string>
@@ -45,11 +45,13 @@
     <string name="account_edit_done">完成</string>
     <string name="account_edit_remove">移除</string>
     <string name="enabled_accounts_empty">尚未啟用任何帳號，請點「編輯」勾選。</string>
-    <string name="error_no_enabled_accounts">請至少啟用一個帳號。</string>
+    <string name="error_no_signed_in_account">請先登入 Google 帳號。</string>
+    <string name="error_no_enabled_accounts">請先登入 Google 帳號。</string>
     <string name="error_cannot_disable_last_account">至少需保留一個啟用帳號。</string>
     <string name="start_run_blocked_session_active">已有 Run 進行中。</string>
 
     <string name="env_icon_battery">電池</string>
+    <string name="env_icon_health_connect">Health Connect</string>
     <string name="env_icon_fit">Google Fit</string>
     <string name="env_icon_notifications">通知</string>
     <string name="env_icon_alarms">鬧鐘</string>
@@ -123,6 +125,7 @@
     <string name="settings_battery_optimization">電池最佳化</string>
     <string name="settings_app_details">應用程式詳細資料</string>
     <string name="settings_notifications">通知設定</string>
+    <string name="settings_health_connect">Health Connect</string>
     <string name="settings_google_fit">Google Fit</string>
 
     <string name="run_status_running">進行中</string>

@@ -7,7 +7,6 @@ import com.pixsonlin.apbfit.data.db.entity.SegmentRecordEntity
 import com.pixsonlin.apbfit.data.model.IntensityLevel
 import com.pixsonlin.apbfit.data.model.SegmentWriteStatus
 import com.pixsonlin.apbfit.data.model.ValidationResult
-import com.pixsonlin.apbfit.data.prefs.HistoryAccountPrefs
 import com.pixsonlin.apbfit.data.repository.AccountRepository
 import com.pixsonlin.apbfit.data.repository.RunRepository
 import com.pixsonlin.apbfit.ui.util.RunFormatting
@@ -24,11 +23,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-data class HistoryAccountOption(
-    val id: String,
-    val email: String,
-)
 
 data class RunHistoryItem(
     val id: String,
@@ -58,9 +52,7 @@ data class ValidationSheetState(
 )
 
 data class HistoryUiState(
-    val accounts: List<HistoryAccountOption> = emptyList(),
-    val selectedAccountId: String? = null,
-    val selectedAccountEmail: String = "",
+    val signedInEmail: String? = null,
     val runs: List<RunHistoryItem> = emptyList(),
     val expandedSegments: List<SegmentHistoryItem> = emptyList(),
     val validationSheet: ValidationSheetState? = null,
@@ -72,17 +64,16 @@ data class HistoryUiState(
 class HistoryViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val runRepository: RunRepository,
-    private val historyAccountPrefs: HistoryAccountPrefs,
     private val uiStrings: UiStrings,
 ) : ViewModel() {
-    private val selectedAccountId = MutableStateFlow<String?>(null)
     private val expandedRunId = MutableStateFlow<String?>(null)
     private val segments = MutableStateFlow<List<SegmentRecordEntity>>(emptyList())
     private val validationSheet = MutableStateFlow<ValidationSheetState?>(null)
     private val statusMessage = MutableStateFlow<String?>(null)
     private var segmentsJob: Job? = null
 
-    private val runsFlow = selectedAccountId.flatMapLatest { accountId ->
+    private val runsFlow = accountRepository.activeAccount.flatMapLatest { account ->
+        val accountId = account?.id
         if (accountId == null) {
             flowOf(emptyList())
         } else {
@@ -93,12 +84,11 @@ class HistoryViewModel @Inject constructor(
     val uiState: StateFlow<HistoryUiState> = combine(
         combine(
             accountRepository.accountRevision,
-            selectedAccountId,
             runsFlow,
             expandedRunId,
             segments,
-        ) { _, accountId, runs, expandedId, segmentEntities ->
-            RunsSnapshot(accountId, runs, expandedId, segmentEntities)
+        ) { _, runs, expandedId, segmentEntities ->
+            RunsSnapshot(runs, expandedId, segmentEntities)
         },
         combine(
             validationSheet,
@@ -107,17 +97,8 @@ class HistoryViewModel @Inject constructor(
             SheetSnapshot(sheet, status)
         },
     ) { runsSnapshot, sheetSnapshot ->
-        val accountOptions = accountRepository.getKnownAccounts().map { account ->
-            HistoryAccountOption(
-                id = account.id.orEmpty(),
-                email = account.email.orEmpty(),
-            )
-        }
-        val selectedEmail = accountOptions.firstOrNull { it.id == runsSnapshot.accountId }?.email.orEmpty()
         HistoryUiState(
-            accounts = accountOptions,
-            selectedAccountId = runsSnapshot.accountId,
-            selectedAccountEmail = selectedEmail,
+            signedInEmail = accountRepository.activeAccount.value?.email,
             runs = runsSnapshot.runs.map { run ->
                 val intensityName = runCatching {
                     IntensityLevel.valueOf(run.intensityLevel).displayName
@@ -140,37 +121,19 @@ class HistoryViewModel @Inject constructor(
                         segment.endTime <= System.currentTimeMillis()
                 }
                 .map { segment ->
-                SegmentHistoryItem(
-                    segmentIndex = segment.segmentIndex,
-                    timeRangeLabel = "${RunFormatting.formatTime(segment.startTime)} – ${RunFormatting.formatTime(segment.endTime)}",
-                    steps = segment.steps,
-                    distanceMeters = segment.distanceMeters,
-                    writeStatus = segment.writeStatus,
-                    errorMessage = segment.errorMessage,
-                )
-            },
+                    SegmentHistoryItem(
+                        segmentIndex = segment.segmentIndex,
+                        timeRangeLabel = "${RunFormatting.formatTime(segment.startTime)} – ${RunFormatting.formatTime(segment.endTime)}",
+                        steps = segment.steps,
+                        distanceMeters = segment.distanceMeters,
+                        writeStatus = segment.writeStatus,
+                        errorMessage = segment.errorMessage,
+                    )
+                },
             validationSheet = sheetSnapshot.sheet,
             statusMessage = sheetSnapshot.status,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HistoryUiState())
-
-    init {
-        viewModelScope.launch {
-            resolveSelectedAccount()
-            accountRepository.accountRevision.collect {
-                resolveSelectedAccount()
-            }
-        }
-    }
-
-    fun selectAccount(accountId: String) {
-        if (accountId == selectedAccountId.value) return
-        expandedRunId.value = null
-        segments.value = emptyList()
-        segmentsJob?.cancel()
-        selectedAccountId.value = accountId
-        historyAccountPrefs.setSelectedAccountId(accountId)
-    }
 
     fun toggleExpanded(runId: String) {
         if (expandedRunId.value == runId) {
@@ -233,32 +196,7 @@ class HistoryViewModel @Inject constructor(
         statusMessage.value = null
     }
 
-    private fun resolveSelectedAccount() {
-        val known = accountRepository.getKnownAccounts()
-        val knownIds = known.mapNotNull { it.id }.toSet()
-        val current = selectedAccountId.value
-        val saved = historyAccountPrefs.getSelectedAccountId()
-        val resolved = when {
-            current != null && current in knownIds -> current
-            saved != null && saved in knownIds -> saved
-            knownIds.isNotEmpty() -> knownIds.first()
-            else -> null
-        }
-        if (resolved != current) {
-            expandedRunId.value = null
-            segments.value = emptyList()
-            segmentsJob?.cancel()
-            selectedAccountId.value = resolved
-        }
-        if (resolved != null) {
-            historyAccountPrefs.setSelectedAccountId(resolved)
-        } else {
-            historyAccountPrefs.clearSelectedAccountId()
-        }
-    }
-
     private data class RunsSnapshot(
-        val accountId: String?,
         val runs: List<RunEntity>,
         val expandedId: String?,
         val segmentEntities: List<SegmentRecordEntity>,

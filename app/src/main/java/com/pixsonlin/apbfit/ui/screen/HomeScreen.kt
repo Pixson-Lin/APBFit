@@ -56,7 +56,6 @@ import com.pixsonlin.apbfit.data.model.IntensityLevel
 import com.pixsonlin.apbfit.domain.CheckStatus
 import com.pixsonlin.apbfit.domain.CompactEnvironmentState
 import com.pixsonlin.apbfit.ui.theme.WarnOrange
-import com.pixsonlin.apbfit.ui.viewmodel.EnabledAccountSummary
 import com.pixsonlin.apbfit.ui.viewmodel.HomeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,30 +68,6 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-
-    val addAccountLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-    ) { result ->
-        viewModel.onAddAccountResult(result.data)
-    }
-
-    val fitnessPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-    ) { result ->
-        viewModel.onFitnessPermissionResult(result.data)
-    }
-
-    val settingsLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-    ) {
-        viewModel.refreshEnvironmentChecks()
-    }
-
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) {
-        viewModel.refreshEnvironmentChecks()
-    }
 
     val healthConnectPermissionLauncher = rememberLauncherForActivityResult(
         contract = PermissionController.createRequestPermissionResultContract(),
@@ -114,17 +89,16 @@ fun HomeScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    if (uiState.showAccountEditSheet) {
-        AccountEditSheet(
-            accounts = uiState.accountEditItems,
-            enabledAccountCount = uiState.enabledAccounts.size,
-            onDismiss = viewModel::dismissAccountEditSheet,
-            onToggleEnabled = viewModel::setAccountEnabled,
-            onSignOut = viewModel::signOutAccount,
-            onAddAccount = {
-                viewModel.launchAddAccount { intent -> addAccountLauncher.launch(intent) }
-            },
-        )
+    val settingsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) {
+        viewModel.refreshEnvironmentChecks()
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) {
+        viewModel.refreshEnvironmentChecks()
     }
 
     Column(
@@ -169,10 +143,10 @@ fun HomeScreen(
             onBatchChanged = viewModel::snapBatchFromSlider,
         )
 
-        EnabledAccountsSection(
-            enabledAccounts = uiState.enabledAccounts,
+        SignedInAccountSection(
+            signedInEmail = uiState.signedInEmail,
             configLocked = uiState.isConfigLocked,
-            onEditAccounts = viewModel::openAccountEditSheet,
+            onSignOut = viewModel::signOut,
         )
 
         EnvironmentIconRow(
@@ -180,13 +154,11 @@ fun HomeScreen(
             onBatteryTap = {
                 settingsLauncher.launch(viewModel.batteryOptimizationIntent())
             },
-            onFitTap = {
-                if (uiState.environmentIcons.fit == CheckStatus.WARN) {
-                    viewModel.onFitIconTap(
-                        launchSignIn = { intent -> fitnessPermissionLauncher.launch(intent) },
-                        launchExternal = { intent -> settingsLauncher.launch(intent) },
-                    )
-                }
+            onHealthConnectTap = {
+                viewModel.onHealthConnectIconTap(
+                    requestHealthConnectPermissions = requestHealthConnectPermissions,
+                    launchExternal = { intent -> settingsLauncher.launch(intent) },
+                )
             },
             onNotificationsTap = {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -344,12 +316,11 @@ private fun RunConfigSection(
 }
 
 @Composable
-private fun EnabledAccountsSection(
-    enabledAccounts: List<EnabledAccountSummary>,
+private fun SignedInAccountSection(
+    signedInEmail: String?,
     configLocked: Boolean,
-    onEditAccounts: () -> Unit,
+    onSignOut: () -> Unit,
 ) {
-    val context = LocalContext.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -360,36 +331,28 @@ private fun EnabledAccountsSection(
             style = MaterialTheme.typography.titleMedium,
         )
         TextButton(
-            onClick = onEditAccounts,
-            enabled = !configLocked,
-            modifier = Modifier.semantics {
-                contentDescription = context.getString(R.string.content_desc_account_edit)
-            },
+            onClick = onSignOut,
+            enabled = !configLocked && signedInEmail != null,
         ) {
-            Text(stringResource(R.string.account_edit_button))
+            Text(stringResource(R.string.settings_sign_out))
         }
     }
-    if (enabledAccounts.isEmpty()) {
-        Text(
-            text = stringResource(R.string.enabled_accounts_empty),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    } else {
-        enabledAccounts.forEach { account ->
-            Text(
-                text = account.email,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-    }
+    Text(
+        text = signedInEmail ?: stringResource(R.string.active_account_none),
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (signedInEmail == null) {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        },
+    )
 }
 
 @Composable
 private fun EnvironmentIconRow(
     icons: CompactEnvironmentState,
     onBatteryTap: () -> Unit,
-    onFitTap: () -> Unit,
+    onHealthConnectTap: () -> Unit,
     onNotificationsTap: () -> Unit,
     onAlarmsTap: () -> Unit,
 ) {
@@ -403,9 +366,9 @@ private fun EnvironmentIconRow(
             onClick = onBatteryTap,
         )
         EnvironmentIcon(
-            label = stringResource(R.string.env_icon_fit),
+            label = stringResource(R.string.env_icon_health_connect),
             status = icons.fit,
-            onClick = onFitTap,
+            onClick = onHealthConnectTap,
         )
         EnvironmentIcon(
             label = stringResource(R.string.env_icon_notifications),

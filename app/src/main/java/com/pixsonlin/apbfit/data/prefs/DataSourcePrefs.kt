@@ -5,6 +5,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * @deprecated Google Fit DataSource cache; only used by [GoogleFitWriter].
+ */
+@Deprecated("Google Fit only. Scheduled for removal in HC migration Phase 2.")
 @Singleton
 class DataSourcePrefs @Inject constructor(
     @ApplicationContext context: Context,

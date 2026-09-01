@@ -13,6 +13,10 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object FitModule {
+  /**
+   * Binds [HealthConnectWriter] when [BuildConfig.USE_HEALTH_CONNECT_WRITER] is true (default).
+   * [GoogleFitWriter] remains as a deprecated fallback when the flag is false.
+   */
     @Provides
     @Singleton
     fun provideFitWriter(
@@ -21,6 +25,7 @@ object FitModule {
     ): FitWriter = if (BuildConfig.USE_HEALTH_CONNECT_WRITER) {
         healthConnectWriter
     } else {
+        @Suppress("DEPRECATION")
         googleFitWriter
     }
 }

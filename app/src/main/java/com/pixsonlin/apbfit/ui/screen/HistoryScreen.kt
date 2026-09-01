@@ -12,10 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -25,17 +22,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -75,15 +65,7 @@ fun HistoryScreen(
             TextButton(onClick = {}) { Text("") }
         }
 
-        if (uiState.accounts.isNotEmpty()) {
-            HistoryAccountDropdown(
-                accounts = uiState.accounts,
-                selectedAccountEmail = uiState.selectedAccountEmail,
-                onAccountSelected = viewModel::selectAccount,
-            )
-        }
-
-        if (uiState.accounts.isEmpty()) {
+        if (uiState.signedInEmail == null) {
             Text(
                 text = stringResource(R.string.history_no_accounts),
                 style = MaterialTheme.typography.bodyMedium,
@@ -128,52 +110,6 @@ fun HistoryScreen(
             onStepCountChanged = viewModel::setValidationStepCount,
             onSave = viewModel::saveValidation,
         )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun HistoryAccountDropdown(
-    accounts: List<com.pixsonlin.apbfit.ui.viewmodel.HistoryAccountOption>,
-    selectedAccountEmail: String,
-    onAccountSelected: (String) -> Unit,
-) {
-    val context = LocalContext.current
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp),
-    ) {
-        TextField(
-            value = selectedAccountEmail,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(stringResource(R.string.history_account_label)) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .menuAnchor()
-                .fillMaxWidth()
-                .semantics {
-                    contentDescription = context.getString(R.string.content_desc_history_account_dropdown)
-                },
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            accounts.forEach { account ->
-                DropdownMenuItem(
-                    text = { Text(account.email) },
-                    onClick = {
-                        onAccountSelected(account.id)
-                        expanded = false
-                    },
-                )
-            }
-        }
     }
 }
 

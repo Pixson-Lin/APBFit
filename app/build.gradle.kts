@@ -35,8 +35,7 @@ android {
             useSupportLibrary = true
         }
 
-        // Toggle to true locally or via the healthConnect build type to exercise HC writes.
-        buildConfigField("boolean", "USE_HEALTH_CONNECT_WRITER", "false")
+        buildConfigField("boolean", "USE_HEALTH_CONNECT_WRITER", "true")
     }
 
     signingConfigs {
@@ -51,9 +50,9 @@ android {
     }
 
     buildTypes {
+        // Deprecated: HC is default in defaultConfig. Kept for CI/scripts that still reference this name.
         create("healthConnect") {
             initWith(getByName("debug"))
-            buildConfigField("boolean", "USE_HEALTH_CONNECT_WRITER", "true")
             matchingFallbacks += listOf("debug")
         }
         release {

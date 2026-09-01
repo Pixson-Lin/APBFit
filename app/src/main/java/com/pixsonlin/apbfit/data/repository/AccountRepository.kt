@@ -52,6 +52,7 @@ class AccountRepository @Inject constructor(
 
     suspend fun initialize() {
         mutex.withLock {
+            enforceSingleAccountPolicy()
             restoreCachedAccounts()
         }
     }
@@ -86,7 +87,7 @@ class AccountRepository @Inject constructor(
                 "handleSignInResult: email=${account.email} id=${account.id} alreadyKnown=$alreadyKnown",
             )
             cacheAccount(account)
-            accountPrefs.addKnownAccountId(account.id!!)
+            enforceSingleAccount(account.id!!)
             accountPrefs.setActiveAccountId(account.id!!)
             _activeAccount.value = account
             bumpAccounts()
@@ -175,6 +176,19 @@ class AccountRepository @Inject constructor(
 
     fun requireActiveAccount(): GoogleSignInAccount =
         _activeAccount.value ?: error("No active account")
+
+    private fun enforceSingleAccountPolicy() {
+        val known = accountPrefs.getKnownAccountIds()
+        if (known.size <= 1) return
+        val activeId = accountPrefs.getActiveAccountId() ?: known.first()
+        accountPrefs.setKnownAccountIds(setOf(activeId))
+        known.filter { it != activeId }.forEach { accountCache.remove(it) }
+    }
+
+    private fun enforceSingleAccount(accountId: String) {
+        accountCache.keys.filter { it != accountId }.forEach { accountCache.remove(it) }
+        accountPrefs.setKnownAccountIds(setOf(accountId))
+    }
 
     private fun restoreCachedAccounts() {
         val lastSignedIn = GoogleSignIn.getLastSignedInAccount(context)

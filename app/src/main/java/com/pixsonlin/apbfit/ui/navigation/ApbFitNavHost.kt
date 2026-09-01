@@ -28,7 +28,7 @@ fun ApbFitNavHost(
     val accountRevision by rootViewModel.accountRepository.accountRevision.collectAsStateWithLifecycle()
     val sessionState by rootViewModel.runSessionStateHolder.state.collectAsStateWithLifecycle()
     val hasAccounts = remember(accountRevision) {
-        rootViewModel.accountRepository.getKnownAccounts().isNotEmpty()
+        rootViewModel.accountRepository.hasActiveAccount()
     }
     var wasSessionActive by remember { mutableStateOf(false) }
 
