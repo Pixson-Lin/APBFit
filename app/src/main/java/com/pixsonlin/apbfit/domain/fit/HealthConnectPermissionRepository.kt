@@ -1,6 +1,5 @@
 package com.pixsonlin.apbfit.domain.fit
 
-import com.pixsonlin.apbfit.BuildConfig
 import javax.inject.Inject
 import javax.inject.Singleton
 import androidx.health.connect.client.HealthConnectClient.Companion.SDK_AVAILABLE
@@ -9,12 +8,9 @@ import androidx.health.connect.client.HealthConnectClient.Companion.SDK_AVAILABL
 class HealthConnectPermissionRepository @Inject constructor(
     private val clientProvider: HealthConnectClientProvider,
 ) {
-    fun isHealthConnectWriterActive(): Boolean = BuildConfig.USE_HEALTH_CONNECT_WRITER
-
     fun isSdkAvailable(): Boolean = clientProvider.sdkStatus() == SDK_AVAILABLE
 
     suspend fun getMissingPermissions(): Set<String> {
-        if (!isHealthConnectWriterActive()) return emptySet()
         if (!isSdkAvailable()) {
             return HealthConnectPermissions.requestPermissions
         }

@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Required on API 30+ to detect whether Google Fit is installed (FR-015). -->
+    <!-- Required on API 30+ to detect whether Health Connect is installed. -->
     <queries>
-        <package android:name="com.google.android.apps.fitness" />
         <package android:name="com.google.android.apps.healthdata" />
     </queries>
 

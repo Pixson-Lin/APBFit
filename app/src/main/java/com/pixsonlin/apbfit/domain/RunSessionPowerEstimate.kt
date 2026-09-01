@@ -10,8 +10,8 @@ object RunSessionPowerEstimate {
     /** Matches [com.pixsonlin.apbfit.service.AccountRunContext] stop-poll chunk size. */
     const val STOP_POLL_INTERVAL_MS = 500L
 
-    /** Matches three [com.pixsonlin.apbfit.domain.fit.GoogleFitWriter.writeSegments] calls per batch. */
-    const val FIT_INSERT_CALLS_PER_BATCH = 3
+    /** Matches one [androidx.health.connect.client.HealthConnectClient.insertRecords] call per batch. */
+    const val HEALTH_CONNECT_INSERT_CALLS_PER_BATCH = 1
 
     /** Mean of uniform [SegmentGenerator.MIN_DURATION_SEC, SegmentGenerator.MAX_DURATION_SEC_EXCLUSIVE). */
     val avgSegmentDurationSec: Int =
@@ -34,8 +34,8 @@ object RunSessionPowerEstimate {
         return segmentCount.toLong() * pollsPerSegment
     }
 
-    fun expectedFitInsertDataCalls(batchWriteCount: Int): Int =
-        batchWriteCount * FIT_INSERT_CALLS_PER_BATCH
+    fun expectedHealthConnectInsertCalls(batchWriteCount: Int): Int =
+        batchWriteCount * HEALTH_CONNECT_INSERT_CALLS_PER_BATCH
 
     fun expectedRadioActiveSeconds(
         batchWriteCount: Int,
@@ -46,7 +46,7 @@ object RunSessionPowerEstimate {
         val segmentCount: Int,
         val batchWriteCount: Int,
         val pollWakeCount: Long,
-        val fitInsertDataCalls: Int,
+        val healthConnectInsertCalls: Int,
         val progressNotificationUpdates: Int,
     )
 
@@ -62,7 +62,7 @@ object RunSessionPowerEstimate {
             segmentCount = segmentCount,
             batchWriteCount = batchWriteCount,
             pollWakeCount = expectedPollWakeCount(segmentCount, avgSegmentSec, pollIntervalMs),
-            fitInsertDataCalls = expectedFitInsertDataCalls(batchWriteCount),
+            healthConnectInsertCalls = expectedHealthConnectInsertCalls(batchWriteCount),
             progressNotificationUpdates = batchWriteCount,
         )
     }

@@ -30,8 +30,8 @@ class RunSessionPowerEstimateTest {
         assertEquals(80, batch3.batchWriteCount)
         assertEquals(40, batch6.batchWriteCount)
 
-        assertEquals(240, batch3.fitInsertDataCalls)
-        assertEquals(120, batch6.fitInsertDataCalls)
+        assertEquals(80, batch3.healthConnectInsertCalls)
+        assertEquals(40, batch6.healthConnectInsertCalls)
 
         assertEquals(80, batch3.progressNotificationUpdates)
         assertEquals(40, batch6.progressNotificationUpdates)
@@ -44,8 +44,8 @@ class RunSessionPowerEstimateTest {
 
         assertEquals(40, batch3.batchWriteCount / 2)
         assertEquals(20, batch6.batchWriteCount / 2)
-        assertEquals(120, batch3.fitInsertDataCalls / 2)
-        assertEquals(60, batch6.fitInsertDataCalls / 2)
+        assertEquals(40, batch3.healthConnectInsertCalls / 2)
+        assertEquals(20, batch6.healthConnectInsertCalls / 2)
         assertEquals(7_200L, batch3.pollWakeCount / 2)
         assertEquals(7_200L, batch6.pollWakeCount / 2)
     }

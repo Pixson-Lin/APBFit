@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
-import com.pixsonlin.apbfit.BuildConfig
 import com.pixsonlin.apbfit.data.model.IntensityLevel
 import com.pixsonlin.apbfit.data.model.RunAlreadyActiveException
 import com.pixsonlin.apbfit.data.model.RunSessionConfig
@@ -394,11 +393,7 @@ class HomeViewModel @Inject constructor(
             runServiceStarter.startSession(result.sessionId, forceFailRunId)
             Log.d(TAG, "Debug run started sessionId=${result.sessionId}")
         }.onSuccess {
-            statusMessage.value = if (BuildConfig.USE_HEALTH_CONNECT_WRITER) {
-                uiStrings.debugHcRunStarted
-            } else {
-                uiStrings.debugRunStarted
-            }
+            statusMessage.value = uiStrings.debugHcRunStarted
         }.onFailure { error ->
             healthConnectDebugReadback.setDebugRunActive(false)
             handleStartSessionFailure(error, null)
@@ -409,10 +404,6 @@ class HomeViewModel @Inject constructor(
         requestHealthConnectPermissions: (Set<String>) -> Unit,
         deferredAction: suspend () -> Unit,
     ): Boolean {
-        if (!healthConnectPermissionRepository.isHealthConnectWriterActive()) {
-            deferredAction()
-            return true
-        }
         if (!healthConnectPermissionRepository.isSdkAvailable()) {
             statusMessage.value = uiStrings.healthConnectUnavailable
             return false

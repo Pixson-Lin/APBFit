@@ -34,8 +34,6 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
-
-        buildConfigField("boolean", "USE_HEALTH_CONNECT_WRITER", "true")
     }
 
     signingConfigs {
@@ -50,11 +48,6 @@ android {
     }
 
     buildTypes {
-        // Deprecated: HC is default in defaultConfig. Kept for CI/scripts that still reference this name.
-        create("healthConnect") {
-            initWith(getByName("debug"))
-            matchingFallbacks += listOf("debug")
-        }
         release {
             isMinifyEnabled = false
             // Upload keystore for Play (gitignored keystore.properties); falls back to debug when absent.
@@ -110,9 +103,7 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
     implementation(libs.play.services.auth)
-    implementation(libs.play.services.fitness)
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.health.connect.client)
 
     testImplementation(libs.junit)
