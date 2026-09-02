@@ -10,8 +10,9 @@ Complete in [Google Play Console](https://play.google.com/console) before or wit
    - **Distance** (write)
    - **Exercise** (write)
 3. Purpose: user-initiated simulated walking/running activity written locally to Health Connect on the device.
-4. Set the **privacy policy URL** to the published policy page (GitHub Pages or equivalent), e.g.:
-   - `https://<your-github-pages-host>/APBFit/privacy/` (update after Pages deploy)
+4. Set the **privacy policy URL** to the published policy page (GitHub Pages):
+   - `https://pixson-lin.github.io/APBFit/privacy/`
+   - After merging to `main`, deploy Pages (see README or owner notes below).
 
 ## Store listing
 

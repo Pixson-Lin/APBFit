@@ -1,22 +1,40 @@
 # APBFit — Auto Personal Boost Fit
 
-> **Status:** v1.3 sideload release shipped — formal applicationId (`com.pixsonlin.apbfit`) for Play Store prep.
+> **Status:** v1.4 — Health Connect write path (internal test / Play prep).
 
-[Software Requirements Specification (v1.2)](docs/APBFit_SRS_v1.2_public.md) · [SDS v1.2](docs/APBFit_SDS_v1.2_public.md) · [SRS v1.1](docs/APBFit_SRS_v1.1_public.md) · [Development Guide](docs/APBFit_Cursor_Prompt_public.md)
+[Health Connect migration plan](docs/HC_migration.md) · [Privacy Policy](docs/privacy/) · [Software Requirements Specification (v1.2)](docs/APBFit_SRS_v1.2_public.md) · [SDS v1.2](docs/APBFit_SDS_v1.2_public.md) · [Development Guide](docs/APBFit_Cursor_Prompt_public.md)
 
 ---
 
 ## Overview
 
-**APBFit** is an Android application that writes simulated walking and running activity data into **Google Fit** on behalf of a signed-in Google account. It generates step count records designed to be compatible with fitness-integrated applications that read from Google Fit.
+**APBFit** is an Android application that writes simulated walking and running activity data into **Health Connect** on the device. It generates step count, distance, and exercise session records designed to be compatible with fitness-integrated applications that read from Health Connect (for example, games that consume on-device step data).
 
-The app provides a structured run-based workflow with full observability: configurable intensity and duration, foreground background execution, per-run history with segment-level detail, and optional logging of whether downstream apps accepted the written data.
+The app provides a structured run-based workflow with full observability: configurable intensity and duration, foreground background execution, per-run history with segment-level detail, and optional logging of whether downstream apps accepted the written data. Google Sign-In is used for account identity only; writes are device-scoped via Health Connect.
 
 **繁體中文**
 
-**APBFit** 是一款 Android 應用程式，代表已登入的 Google 帳號，將模擬的步行與跑步活動資料寫入 **Google Fit**。其目標是產生與讀取 Google Fit 資料的健身整合應用相容的步數紀錄。
+**APBFit** 是一款 Android 應用程式，將模擬的步行與跑步活動資料寫入裝置上的 **Health Connect**。其目標是產生與讀取 Health Connect 資料的健身整合應用相容的步數、距離與運動紀錄。
 
-本 App 提供結構化的 Run 流程與完整可觀察性：可設定強度與時長、前景服務背景執行、含 segment 層級細節的 Run 歷史紀錄，以及可選填的下游應用驗證結果紀錄。
+本 App 提供結構化的 Run 流程與完整可觀察性：可設定強度與時長、前景服務背景執行、含 segment 層級細節的 Run 歷史紀錄，以及可選填的下游應用驗證結果紀錄。Google 登入僅用於帳號身分；寫入透過 Health Connect 在本機裝置上進行。
+
+---
+
+## Features (v1.4)
+
+- **Health Connect** as the only write path (`HealthConnectWriter` via `insertRecords`)
+- Single Google account per install (multi-account UI removed)
+- Environment checks gate **Start Run** on Health Connect SDK + permissions
+- Google Sign-In retains email/profile only (no Google Fit / Fitness OAuth scopes)
+- Privacy policy and internal tester invite updated for HC
+
+**繁體中文**
+
+- 寫入路徑改為 **Health Connect**（`HealthConnectWriter`，`insertRecords`）
+- 單一 Google 帳號（移除多帳號 UI）
+- 環境檢查以 Health Connect SDK 與權限作為 **Start Run** 條件
+- Google 登入僅保留 email／基本資料（不再申請 Google Fit OAuth）
+- 隱私政策與內部測試邀請已更新為 HC 版本
 
 ---
 
@@ -120,7 +138,7 @@ The app provides a structured run-based workflow with full observability: config
 | UI | Jetpack Compose + Material 3 |
 | Navigation | Navigation Compose |
 | Google Auth | `play-services-auth` |
-| Google Fit | `play-services-fitness` |
+| Health Connect | `androidx.health.connect:connect-client` |
 
 **繁體中文**
 
@@ -136,7 +154,7 @@ The app provides a structured run-based workflow with full observability: config
 | UI | Jetpack Compose + Material 3 |
 | 導覽 | Navigation Compose |
 | Google 登入 | `play-services-auth` |
-| Google Fit | `play-services-fitness` |
+| Health Connect | `androidx.health.connect:connect-client` |
 
 ---
 
@@ -153,10 +171,10 @@ RunForegroundService
     │  SegmentPlanner → Room (PLANNED)
     │  SessionScheduler + CatchUpEngine → FitWriter
     ▼
-FitWriter ──► GoogleFitWriter (HistoryClient.insertData)
+FitWriter ──► HealthConnectWriter (HealthConnectClient.insertRecords)
 ```
 
-The write path is isolated behind a `FitWriter` interface so the underlying implementation can be substituted if the Google Fit API or integration requirements change.
+The write path is isolated behind a `FitWriter` interface. Health Connect stores data on-device; APBFit does not operate a cloud sync service.
 
 **繁體中文**
 
@@ -171,10 +189,10 @@ RunForegroundService
     │  SegmentPlanner → Room（PLANNED）
     │  SessionScheduler + CatchUpEngine → FitWriter
     ▼
-FitWriter ──► GoogleFitWriter（HistoryClient.insertData）
+FitWriter ──► HealthConnectWriter（HealthConnectClient.insertRecords）
 ```
 
-寫入路徑透過 `FitWriter` 介面隔離，以便在 Google Fit API 或整合需求變更時替換底層實作。
+寫入路徑透過 `FitWriter` 介面隔離。Health Connect 資料儲存在裝置本機；APBFit 不提供雲端同步服務。
 
 ---
 
@@ -183,34 +201,12 @@ FitWriter ──► GoogleFitWriter（HistoryClient.insertData）
 ### Prerequisites
 
 - Android 12 (API 31) or later
-- Google Play Services
-- Google Fit app installed on the device
-- A Google account with Google Fit permissions granted
+- Google Play Services (for Google Sign-In)
+- **Health Connect** installed and updated on the device
+- Health Connect permissions granted (steps read/write, distance write, exercise write)
+- A Google account added as an OAuth test user (internal testing)
 
 ### Build
-
-```bash
-git clone https://github.com/Pixson-Lin/APBFit.git
-cd APBFit
-./gradlew assembleRelease
-```
-
-Debug builds: `./gradlew assembleDebug`
-
-Install the generated APK via sideloading. Google Play distribution is planned for a future release.
-
-Current release: **v1.3.20260629** (`versionCode` 26062901).
-
-**繁體中文**
-
-### 環境需求
-
-- Android 12（API 31）或以上
-- Google Play Services
-- 裝置已安裝 Google Fit
-- 已授權 Google Fit 權限的 Google 帳號
-
-### 建置（原始碼就緒後）
 
 ```bash
 git clone https://github.com/Pixson-Lin/APBFit.git
@@ -218,9 +214,35 @@ cd APBFit
 ./gradlew assembleDebug
 ```
 
-請以 sideload 方式安裝產生的 APK。Google Play 上架規劃於未來版本。
+For Play upload: `./gradlew bundleRelease`
 
-目前版本：**v1.3.20260629**（`versionCode` 26062901）。
+Install via Google Play internal testing or sideload the APK/AAB.
+
+Current release: **v1.4.20260901** (`versionCode` 26090101).
+
+**繁體中文**
+
+### 環境需求
+
+- Android 12（API 31）或以上
+- Google Play Services（Google 登入）
+- 裝置已安裝並更新 **Health Connect**
+- 已授權 Health Connect（步數讀寫、距離寫入、運動寫入）
+- Google 帳號已加入 OAuth 測試使用者（內部測試）
+
+### 建置
+
+```bash
+git clone https://github.com/Pixson-Lin/APBFit.git
+cd APBFit
+./gradlew assembleDebug
+```
+
+Play 上傳：`./gradlew bundleRelease`
+
+透過 Google Play 內部測試或 sideload 安裝。
+
+目前版本：**v1.4.20260901**（`versionCode` 26090101）。
 
 ---
 
@@ -228,7 +250,10 @@ cd APBFit
 
 | Document | Description |
 |----------|-------------|
-| [SRS v1.2 (public)](docs/APBFit_SRS_v1.2_public.md) | v1.2 requirements (shipped) — pre-planned segments, scheduled write + catch-up, orphan resume (Issue #5) |
+| [HC migration plan](docs/HC_migration.md) | Health Connect cutover plan (supersedes dual-track brief) |
+| [HC writer notes](docs/APBFit_Health_Connect_Writer.md) | Technical Health Connect writer implementation |
+| [Privacy Policy](docs/privacy/) | Published policy (GitHub Pages) |
+| [SRS v1.2 (public)](docs/APBFit_SRS_v1.2_public.md) | v1.2 requirements (historical — write path was Google Fit) |
 | [SDS v1.2 (public)](docs/APBFit_SDS_v1.2_public.md) | v1.2 design (shipped) — Scheme C scheduler, Room v3 |
 | [SRS v1.1 (public)](docs/APBFit_SRS_v1.1_public.md) | v1.1 requirements (shipped) — multi-account sessions, simplified UI |
 | [SDS v1.1 (public)](docs/APBFit_SDS_v1.1_public.md) | v1.1 design (shipped) |
@@ -240,7 +265,10 @@ cd APBFit
 
 | 文件 | 說明 |
 |------|------|
-| [SRS v1.2（公開版）](docs/APBFit_SRS_v1.2_public.md) | v1.2 需求（已發布）— 步數預生成、排程寫入與 catch-up、orphan 續跑（Issue #5） |
+| [HC 遷移計畫](docs/HC_migration.md) | Health Connect 切換計畫（取代雙軌 brief） |
+| [HC writer 技術說明](docs/APBFit_Health_Connect_Writer.md) | Health Connect 寫入實作 |
+| [隱私權政策](docs/privacy/) | 公開政策頁（GitHub Pages） |
+| [SRS v1.2（公開版）](docs/APBFit_SRS_v1.2_public.md) | v1.2 需求（歷史文件 — 當時寫入路徑為 Google Fit） |
 | [SDS v1.2（公開版）](docs/APBFit_SDS_v1.2_public.md) | v1.2 設計（已發布）— Scheme C 排程、Room v3 |
 | [SRS v1.1（公開版）](docs/APBFit_SRS_v1.1_public.md) | v1.1 需求（已發布）— 多帳號並發、簡化 UI |
 | [SDS v1.1（公開版）](docs/APBFit_SDS_v1.1_public.md) | v1.1 設計（已發布） |
@@ -254,39 +282,39 @@ cd APBFit
 
 | Version | Scope |
 |---------|-------|
+| **v1.4** | Health Connect write path, single account, HC privacy policy, Play internal test build |
 | **v1.3** | Sideload release — formal applicationId `com.pixsonlin.apbfit` (Play prep), WARN indicator orange |
 | **v1.2** | Sideload release — scheduled write engine, screen-off catch-up, orphan resume (Issue #5) |
 | **v1.1** | Sideload release — concurrent multi-account runs, simplified UI, config persistence, zh-TW UI |
 | **v1.0** | Sideload release — single-account runs, preset intensity levels, run history, result validation |
-| v1.4 | Custom intensity parameters |
-| v1.5 | Orphan recovery preference (abandon vs resume PLANNED) |
-| v1.6 | Google Play Store release |
-| v1.7 | Write path adaptability via `FitWriter` interface |
+| v1.5 | Custom intensity parameters |
+| v1.6 | Orphan recovery preference (abandon vs resume PLANNED) |
+| v1.7 | Google Play Store public release |
 | v2.0+ | Cloud sync, export, dashboard |
 
 **繁體中文**
 
 | 版本 | 範圍 |
 |------|------|
+| **v1.4** | Health Connect 寫入路徑、單帳號、HC 隱私政策、Play 內部測試版 |
 | **v1.3** | 側載發布 — 正式 applicationId `com.pixsonlin.apbfit`（上架準備）、WARN 指示改橘色 |
 | **v1.2** | 側載發布 — 排程寫入引擎、關螢幕 catch-up、orphan 續跑（Issue #5） |
 | **v1.1** | 側載發布 — 多帳號並發 Run、簡化 UI、設定記憶、繁體中文介面 |
 | **v1.0** | 側載發布 — 單帳號 Run、預設強度、歷史紀錄、驗證結果紀錄 |
-| v1.4 | 自訂強度參數 |
-| v1.5 | Orphan 恢復偏好（放棄 vs 續寫 PLANNED） |
-| v1.6 | Google Play 上架 |
-| v1.7 | 透過 `FitWriter` 介面支援寫入路徑替換 |
+| v1.5 | 自訂強度參數 |
+| v1.6 | Orphan 恢復偏好（放棄 vs 續寫 PLANNED） |
+| v1.7 | Google Play 正式上架 |
 | v2.0+ | 雲端同步、匯出、儀表板 |
 
 ---
 
 ## Disclaimer
 
-This project interacts with third-party services (including Google Fit) that may change their APIs, data policies, or integration behavior at any time. Use at your own risk. The authors are not affiliated with Google or any third-party fitness application.
+This project interacts with third-party services (including Health Connect and Google Sign-In) that may change their APIs, data policies, or integration behavior at any time. Use at your own risk. The authors are not affiliated with Google or any third-party fitness application.
 
 **繁體中文**
 
-本專案與第三方服務（包含 Google Fit）互動，相關 API、資料政策或整合行為可能隨時變更。使用風險自負。作者與 Google 或任何第三方健身應用無關聯。
+本專案與第三方服務（包含 Health Connect 與 Google 登入）互動，相關 API、資料政策或整合行為可能隨時變更。使用風險自負。作者與 Google 或任何第三方健身應用無關聯。
 
 ---
 

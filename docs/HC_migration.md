@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document | HC-only cutover plan (replaces dual-track strategy) |
-| Status | **Approved for review** — do not start implementation until owner signs off |
+| Status | **Merged to `main`** — HC-only write path shipped in v1.4 |
 | Created | 2026-09-01 |
 | Target date | **2026-09-04** — first HC-default build ready for internal validation / Play upload |
 | Branch | `feature/health-connect-writer` (WIP; not yet merged to `main`) |
@@ -164,9 +164,9 @@ These three decisions govern scope for the 9/4 milestone.
 
 ### Phase 4 — Docs & merge
 
-- Merge `feature/health-connect-writer` → `main` after smoke pass.
-- Update README architecture diagram (HC only).
-- Mark [APBFit_Agent_Progress.md](APBFit_Agent_Progress.md) dual-track section as superseded by this doc.
+- [V] Merge `feature/health-connect-writer` → `main` after smoke pass.
+- [V] Update README architecture diagram (HC only).
+- [V] Mark [APBFit_Agent_Progress.md](APBFit_Agent_Progress.md) dual-track section as superseded by this doc.
 - Optional: SRS/SDS HC amendment (can trail 9/4).
 
 ---

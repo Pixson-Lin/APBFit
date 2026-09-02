@@ -4,34 +4,26 @@
 |---|---|
 | Document | Agent-oriented project progress / workstream split |
 | Status | Active |
-| Updated | 2026-08-27 |
+| Updated | 2026-09-02 |
 | Audience | Cursor agents (and humans briefing them) |
-| Related | [README](../README.md), [SRS v1.2](APBFit_SRS_v1.2_public.md), [SDS v1.2](APBFit_SDS_v1.2_public.md), [Fit sync investigation](APBFit_GoogleFit_Sync_Investigation.md), [applicationId / Play plan](APBFit_applicationId_rename_plan.md), [Internal test invite](notes/Internal_test_notes.txt) |
+| Related | [HC migration plan](HC_migration.md) (authoritative for write path), [README](../README.md), [SRS v1.2](APBFit_SRS_v1.2_public.md), [SDS v1.2](APBFit_SDS_v1.2_public.md), [Fit sync investigation](APBFit_GoogleFit_Sync_Investigation.md), [applicationId / Play plan](APBFit_applicationId_rename_plan.md), [Internal test invite](notes/Internal_test_notes.txt) |
 
 ---
 
 ## 1. Current product state (read first)
 
-- **Shipped:** v1.3.20260630 (`versionCode` 26063001), `applicationId` / package `com.pixsonlin.apbfit`.
-- **Write path today:** Google Fit Android SDK via `FitWriter` → `GoogleFitWriter` (`HistoryClient.insertData()`).
-- **Distribution:** Google Play **internal testing** is live; sideload releases also exist.
-- **GitHub Issues #1–#5:** all closed. No open GitHub issues as of 2026-08-27.
-- **Default branch:** `main` — treat as the **stable internal-test line**.
-- **Known limitation (pending, not a v1.x bug):** cross-device Google Fit cloud visibility cannot be forced; same-device write only. See [Google Fit Sync Investigation](APBFit_GoogleFit_Sync_Investigation.md). Health Connect is on-device only and does **not** restore cross-device sync.
-
-### Uncommitted WIP on `main` (as of 2026-08-27)
-
-May still be present when an agent starts; inspect `git status` / `git diff`:
-
-- `SignInScreen` + `strings.xml`: Google Fit install/open prerequisite copy and clearer sign-in error hint
-- `docs/notes/Internal_test_notes.txt`: internal-test invite prerequisites
-- `assets/pictures/APP_Icon_main.png`: icon asset update
-
-Do not discard these without owner confirmation. Prefer committing them on **Track A** if they support tester onboarding.
+- **Shipped:** v1.4.20260901 (`versionCode` 26090101), `applicationId` / package `com.pixsonlin.apbfit`.
+- **Write path today:** **Health Connect** via `FitWriter` → `HealthConnectWriter` (`HealthConnectClient.insertRecords()`). Google Fit writer removed (2026-09).
+- **Distribution:** Google Play **internal testing**; sideload also supported.
+- **Default branch:** `main` — Health Connect cutover merged from `feature/health-connect-writer`.
+- **Authoritative migration doc:** [HC_migration.md](HC_migration.md).
+- **Known limitation:** Health Connect is on-device only; does **not** restore cross-device cloud sync. See [Google Fit Sync Investigation](APBFit_GoogleFit_Sync_Investigation.md).
 
 ---
 
-## 2. Decision (2026-08-27): two parallel tracks
+## 2. Decision (2026-08-27): two parallel tracks — **SUPERSEDED**
+
+> **Superseded 2026-09-01.** Pikmin Bloom discontinued Google Fit support; owner approved HC-only cutover per [HC_migration.md](HC_migration.md). Track A/B split below is **historical** only. New agents: read `HC_migration.md`, not Track A/B briefs.
 
 Health Connect write-path work was **pulled forward** on the roadmap (formerly “FitWriter adaptability” / README v1.7). Development must **not** block or destabilize tester recruitment on the current Play internal build.
 
@@ -157,12 +149,12 @@ Advance write-path migration: harden / extend `FitWriter`, implement Health Conn
 
 ## 7. How to brief a new agent
 
-Paste one of:
+Paste:
 
-**Track A**
+> Read `docs/HC_migration.md` and `docs/APBFit_Health_Connect_Writer.md`. Work on `main` (or a short-lived branch off `main`). Write path is Health Connect only; do not reintroduce Google Fit without owner approval.
 
-> Read `docs/APBFit_Agent_Progress.md`. You are Track A only: work on `main` for Play internal tester recruitment and onboarding. Do not implement Health Connect.
+**Historical (do not use for new work):**
 
-**Track B**
+**Track A** — Play internal tester recruitment on Google Fit build (obsolete).
 
-> Read `docs/APBFit_Agent_Progress.md`. You are Track B only: create or use `feature/health-connect-writer`, implement FitWriter + Health Connect writer + integration tests. Do not change tester recruitment ops on `main` except via later PR.
+**Track B** — `feature/health-connect-writer` HC implementation (merged to `main` 2026-09).
