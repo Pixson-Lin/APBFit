@@ -1,6 +1,6 @@
 # Play Console — Health Connect declaration (owner checklist)
 
-Complete in [Google Play Console](https://play.google.com/console) before or with the **1.4.20260901** internal upload.
+Complete in [Google Play Console](https://play.google.com/console) before or with the **1.4.20260903** internal upload.
 
 ## App content → Health apps
 
@@ -17,7 +17,7 @@ Complete in [Google Play Console](https://play.google.com/console) before or wit
 ## Store listing
 
 - Confirm **Privacy policy** field matches the URL above.
-- Internal testing track: upload **AAB/APK** built with `versionCode` **26090101** / `versionName` **1.4.20260901**.
+- Internal testing track: upload **AAB/APK** built with `versionCode` **26090301** / `versionName` **1.4.20260903** (`targetSdk` 36).
 
 ## Build & upload commands
 

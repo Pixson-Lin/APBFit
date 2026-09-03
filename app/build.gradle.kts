@@ -21,14 +21,14 @@ val hasUploadKeystore = keystorePropertiesFile.exists()
 
 android {
     namespace = "com.pixsonlin.apbfit"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.pixsonlin.apbfit"
         minSdk = 31
-        targetSdk = 35
-        versionCode = 26090101
-        versionName = "1.4.20260901"
+        targetSdk = 36
+        versionCode = 26090301
+        versionName = "1.4.20260903"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
