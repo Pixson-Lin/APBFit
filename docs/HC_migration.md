@@ -8,7 +8,7 @@
 | Target date | **2026-09-04** — first HC-default build ready for internal validation / Play upload |
 | Branch | `feature/health-connect-writer` (WIP; not yet merged to `main`) |
 | Supersedes | Track A/B split in [APBFit_Agent_Progress.md](APBFit_Agent_Progress.md) for write-path work |
-| Related | [APBFit_Health_Connect_Writer.md](APBFit_Health_Connect_Writer.md), [APBFit_GoogleFit_Sync_Investigation.md](APBFit_GoogleFit_Sync_Investigation.md), [APBFit_applicationId_rename_plan.md](APBFit_applicationId_rename_plan.md) |
+| Related | [HC compatibility matrix](notes/HC_compatibility_matrix.md), [Internal test invite](notes/Internal_test_notes.txt), [APBFit_Health_Connect_Writer.md](APBFit_Health_Connect_Writer.md), [APBFit_GoogleFit_Sync_Investigation.md](APBFit_GoogleFit_Sync_Investigation.md), [APBFit_applicationId_rename_plan.md](APBFit_applicationId_rename_plan.md) |
 
 ---
 
@@ -197,6 +197,16 @@ Buffer: if Play HC declaration review delays upload, ship **sideload `release` A
 | Play HC declaration turnaround | Start Play Console form early on 9/3; sideload fallback |
 | Single-account refactor touches many files | Dedicated PR; run existing unit tests + manual smoke |
 | No cross-device sync | Do not promise in UI; same limitation as GF |
+| Pikmin HC mode requires Android 14+ | Recruit Android 14+ for end-to-end; Android 12–13: validate APBFit→HC; optional GF bridge — see [compatibility matrix](notes/HC_compatibility_matrix.md) |
+
+### Device compatibility (owner validation, 2026-09-07)
+
+| Android | APBFit → HC | Pikmin via HC | Notes |
+|---|---|---|---|
+| 15 | ✅ | ✅ | Direct path OK |
+| 12 (S10e) | ✅ | ❌ (Pikmin needs 14+) | GF bridge: 5 rounds OK; GF foreground + delay |
+
+Full matrix and tester paths: [notes/HC_compatibility_matrix.md](notes/HC_compatibility_matrix.md).
 
 ### Open questions (non-blocking unless discovered otherwise)
 
@@ -225,8 +235,9 @@ Buffer: if Play HC declaration review delays upload, ship **sideload `release` A
 | [APBFit_Health_Connect_Writer.md](APBFit_Health_Connect_Writer.md) | Technical HC writer implementation notes |
 | [APBFit_Agent_Progress.md](APBFit_Agent_Progress.md) | Historical dual-track brief (superseded for write path) |
 | [APBFit_applicationId_rename_plan.md](APBFit_applicationId_rename_plan.md) | OAuth SHA-1, Testing mode, Play signing |
-| [notes/Internal_test_notes.txt](notes/Internal_test_notes.txt) | Tester invite (to update) |
-| [APBFit_Privacy_Policy.md](APBFit_Privacy_Policy.md) | Privacy policy (to rewrite for HC) |
+| [notes/HC_compatibility_matrix.md](notes/HC_compatibility_matrix.md) | Android / APBFit / Pikmin path matrix (owner-validated) |
+| [notes/Internal_test_notes.txt](notes/Internal_test_notes.txt) | Tester invite (HC; Android 14+ recommended) |
+| [APBFit_Privacy_Policy.md](APBFit_Privacy_Policy.md) | Privacy policy (HC) |
 
 ---
 
