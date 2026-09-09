@@ -30,5 +30,5 @@ Upload artifact from `app/build/outputs/bundle/release/` (preferred) or `app/bui
 
 ## After upload
 
-- Send updated invite text from [docs/notes/Internal_test_notes.txt](notes/Internal_test_notes.txt).
+- Send the updated invite text maintained in the private tester operations repository.
 - Ask testers to **uninstall old builds** before installing the HC version.

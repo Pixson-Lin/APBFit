@@ -4,7 +4,7 @@
 |---|---|
 | Updated | 2026-09-07 |
 | App version | v1.4.20260903 (`versionCode` 26090301) |
-| Related | [Internal test invite](Internal_test_notes.txt), [HC migration](../HC_migration.md) |
+| Related | [HC migration](../HC_migration.md) |
 
 ---
 

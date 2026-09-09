@@ -8,7 +8,7 @@
 | Target date | **2026-09-04** — first HC-default build ready for internal validation / Play upload |
 | Branch | `feature/health-connect-writer` (WIP; not yet merged to `main`) |
 | Supersedes | Track A/B split in [APBFit_Agent_Progress.md](APBFit_Agent_Progress.md) for write-path work |
-| Related | [HC compatibility matrix](notes/HC_compatibility_matrix.md), [Internal test invite](notes/Internal_test_notes.txt), [APBFit_Health_Connect_Writer.md](APBFit_Health_Connect_Writer.md), [APBFit_GoogleFit_Sync_Investigation.md](APBFit_GoogleFit_Sync_Investigation.md), [APBFit_applicationId_rename_plan.md](APBFit_applicationId_rename_plan.md) |
+| Related | [HC compatibility matrix](notes/HC_compatibility_matrix.md), [APBFit_Health_Connect_Writer.md](APBFit_Health_Connect_Writer.md), [APBFit_GoogleFit_Sync_Investigation.md](APBFit_GoogleFit_Sync_Investigation.md), [APBFit_applicationId_rename_plan.md](APBFit_applicationId_rename_plan.md) |
 
 ---
 
@@ -107,7 +107,7 @@ These three decisions govern scope for the 9/4 milestone.
 | Remove `GoogleFitWriter`, `DataSourcePrefs`, `play-services-fitness` | P1 |
 | Sign-In: drop Fitness scopes | P1 |
 | All user-facing strings (GF → HC) | P1 |
-| Privacy policy + `Internal_test_notes.txt` | P1 |
+| Privacy policy + private tester invite | P1 |
 | Play HC data declaration | P1 |
 | Commit + merge feature branch → `main` | P1 |
 | Version bump + Play internal upload | P1 |
@@ -158,9 +158,9 @@ These three decisions govern scope for the 9/4 milestone.
 
 - [V] Rewrite [APBFit_Privacy_Policy.md](APBFit_Privacy_Policy.md) and [docs/privacy/index.html](privacy/index.html) for HC.
 - [ ] Play Console: Health Connect data types + privacy policy link — see [notes/Play_Console_HC_declaration.md](notes/Play_Console_HC_declaration.md).
-- [V] Update [docs/notes/Internal_test_notes.txt](notes/Internal_test_notes.txt): remove GF prerequisite; add HC permission steps; validation via HC / a third-party step-count app or game.
+- [V] Update the private tester invite: remove GF prerequisite; add HC permission steps; validation via HC / a third-party step-count app or game.
 - [V] Bump `versionCode` / `versionName`; upload Play internal build.
-- [ ] Notify testers to reinstall (use updated `Internal_test_notes.txt`).
+- [ ] Notify testers to reinstall (use the updated private tester invite).
 
 ### Phase 4 — Docs & merge
 
@@ -236,7 +236,7 @@ Full matrix and tester paths: [notes/HC_compatibility_matrix.md](notes/HC_compat
 | [APBFit_Agent_Progress.md](APBFit_Agent_Progress.md) | Historical dual-track brief (superseded for write path) |
 | [APBFit_applicationId_rename_plan.md](APBFit_applicationId_rename_plan.md) | OAuth SHA-1, Testing mode, Play signing |
 | [notes/HC_compatibility_matrix.md](notes/HC_compatibility_matrix.md) | Android / APBFit / third-party app path matrix (owner-validated) |
-| [notes/Internal_test_notes.txt](notes/Internal_test_notes.txt) | Tester invite (HC; Android 14+ recommended) |
+| Private operations repository | Tester invite and recruitment operations |
 | [APBFit_Privacy_Policy.md](APBFit_Privacy_Policy.md) | Privacy policy (HC) |
 
 ---

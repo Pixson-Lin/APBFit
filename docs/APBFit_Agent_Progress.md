@@ -6,7 +6,7 @@
 | Status | Active |
 | Updated | 2026-09-02 |
 | Audience | Cursor agents (and humans briefing them) |
-| Related | [HC migration plan](HC_migration.md) (authoritative for write path), [README](../README.md), [SRS v1.2](APBFit_SRS_v1.2_public.md), [SDS v1.2](APBFit_SDS_v1.2_public.md), [Fit sync investigation](APBFit_GoogleFit_Sync_Investigation.md), [applicationId / Play plan](APBFit_applicationId_rename_plan.md), [Internal test invite](notes/Internal_test_notes.txt) |
+| Related | [HC migration plan](HC_migration.md) (authoritative for write path), [README](../README.md), [SRS v1.2](APBFit_SRS_v1.2_public.md), [SDS v1.2](APBFit_SDS_v1.2_public.md), [Fit sync investigation](APBFit_GoogleFit_Sync_Investigation.md), [applicationId / Play plan](APBFit_applicationId_rename_plan.md) |
 
 ---
 
@@ -53,7 +53,7 @@ Support Play internal testing: clearer onboarding, invite copy, OAuth/tester ros
 ### In scope
 
 - Commit / polish uncommitted sign-in prerequisite messaging and internal-test notes if still dirty
-- Tester invite text (`docs/notes/Internal_test_notes.txt`) and related UI strings
+- Tester invite text (maintained in the private operations repository) and related UI strings
 - Play Console / OAuth hygiene that unblocks testers (document SHA-1 / test-user alignment per [applicationId rename plan](APBFit_applicationId_rename_plan.md) §6 remaining items)
 - Non-breaking bugfixes and docs for the **current Google Fit** build
 - Version bump / Play upload only when owner requests a new internal build
@@ -67,7 +67,7 @@ Support Play internal testing: clearer onboarding, invite copy, OAuth/tester ros
 ### Suggested first actions
 
 1. `git checkout main && git pull`；確認 `git status`
-2. Read this file + `docs/notes/Internal_test_notes.txt` + rename-plan §6 todos
+2. Read this file + the private tester operations notes + rename-plan §6 todos
 3. Confirm with owner before Play Console / OAuth credential changes
 4. Keep commits small and releasable to internal testers
 

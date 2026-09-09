@@ -1,6 +1,13 @@
 ﻿# Private documentation — local only, never commit
 docs/_private/
 
+# Tester operations live in the private APBFit-ops repository
+docs/APBFit_Tester_Quick_Start_Guide.md
+docs/APBFit_Tester_Welcome_Email.md
+docs/notes/APBFit_Tester_Form_Setup.md
+docs/notes/APBFit_Tester_Recruitment_Forms.gs
+docs/notes/Internal_test_notes.txt
+
 # Android / Gradle
 *.iml
 .gradle/
