@@ -251,7 +251,7 @@ Play 上傳：`./gradlew bundleRelease`
 | Document | Description |
 |----------|-------------|
 | [HC migration plan](docs/HC_migration.md) | Health Connect cutover plan (supersedes dual-track brief) |
-| [HC compatibility matrix](docs/notes/HC_compatibility_matrix.md) | Android / APBFit / Pikmin path validation |
+| [HC compatibility matrix](docs/notes/HC_compatibility_matrix.md) | Android / APBFit / third-party app path validation |
 | [HC writer notes](docs/APBFit_Health_Connect_Writer.md) | Technical Health Connect writer implementation |
 | [Privacy Policy](docs/privacy/) | Published policy (GitHub Pages) |
 | [SRS v1.2 (public)](docs/APBFit_SRS_v1.2_public.md) | v1.2 requirements (historical — write path was Google Fit) |
@@ -267,7 +267,7 @@ Play 上傳：`./gradlew bundleRelease`
 | 文件 | 說明 |
 |------|------|
 | [HC 遷移計畫](docs/HC_migration.md) | Health Connect 切換計畫（取代雙軌 brief） |
-| [HC 相容性矩陣](docs/notes/HC_compatibility_matrix.md) | Android／APBFit／Pikmin 路徑驗證 |
+| [HC 相容性矩陣](docs/notes/HC_compatibility_matrix.md) | Android／APBFit／支援 Health Connect 的第三方步數應用或遊戲路徑驗證 |
 | [HC writer 技術說明](docs/APBFit_Health_Connect_Writer.md) | Health Connect 寫入實作 |
 | [隱私權政策](docs/privacy/) | 公開政策頁（GitHub Pages） |
 | [SRS v1.2（公開版）](docs/APBFit_SRS_v1.2_public.md) | v1.2 需求（歷史文件 — 當時寫入路徑為 Google Fit） |

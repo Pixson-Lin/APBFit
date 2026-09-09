@@ -110,7 +110,7 @@ class HealthConnectWriter @Inject constructor(
         val endInstant = Instant.ofEpochMilli(endTimeMillis)
         val startZoneOffset = ZoneId.systemDefault().rules.getOffset(startInstant)
         val endZoneOffset = ZoneId.systemDefault().rules.getOffset(endInstant)
-        // Match HC_verify_app: simulated data uses manualEntry() for Pikmin-compatible steps.
+        // Match HC_verify_app: manual-entry metadata is accepted by the tested downstream app.
         val metadata = Metadata.manualEntry()
 
         return listOf(

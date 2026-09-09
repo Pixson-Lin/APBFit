@@ -23,7 +23,7 @@
 
 ## 2. Decision (2026-08-27): two parallel tracks — **SUPERSEDED**
 
-> **Superseded 2026-09-01.** Pikmin Bloom discontinued Google Fit support; owner approved HC-only cutover per [HC_migration.md](HC_migration.md). Track A/B split below is **historical** only. New agents: read `HC_migration.md`, not Track A/B briefs.
+> **Superseded 2026-09-01.** The primary downstream validation app discontinued Google Fit support; owner approved HC-only cutover per [HC_migration.md](HC_migration.md). Track A/B split below is **historical** only. New agents: read `HC_migration.md`, not Track A/B briefs.
 
 Health Connect write-path work was **pulled forward** on the roadmap (formerly “FitWriter adaptability” / README v1.7). Development must **not** block or destabilize tester recruitment on the current Play internal build.
 

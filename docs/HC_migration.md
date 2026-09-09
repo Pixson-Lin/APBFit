@@ -14,9 +14,9 @@
 
 ## 1. Why we are changing course
 
-- **External driver:** Pikmin Bloom is discontinuing Google Fit support in ~2 weeks (owner announcement, 2026-09-01). Downstream validation must move to **Health Connect (HC)**.
-- **Internal validation:** On `feature/health-connect-writer`, a 5-minute debug run with `healthConnect` build type **passed** — Pikmin reads correct step counts from HC.
-- **Strategy change:** Abandon the dual-track plan (GF on `main`, HC on feature branch). **Ship HC as the only write path** before the Pikmin GF cutoff.
+- **External driver:** The primary downstream validation app announced that it would discontinue Google Fit support in ~2 weeks (owner announcement, 2026-09-01). Downstream validation must move to **Health Connect (HC)**.
+- **Internal validation:** On `feature/health-connect-writer`, a 5-minute debug run with `healthConnect` build type **passed** — the tested third-party step-count app or game read the correct step count from HC.
+- **Strategy change:** Abandon the dual-track plan (GF on `main`, HC on feature branch). **Ship HC as the only write path** before the downstream app's GF cutoff.
 
 HC remains **on-device only** — it does not restore cross-device cloud sync. See [Google Fit Sync Investigation](APBFit_GoogleFit_Sync_Investigation.md).
 
@@ -29,7 +29,7 @@ These three decisions govern scope for the 9/4 milestone.
 | # | Decision | Implication |
 |---|---|---|
 | **D1** | **Do not keep multi-account** | Remove multi-account session UI, parallel per-account runs, account enable/disable sheet, debug “two accounts” requirement, and related prefs/history scoping. One signed-in Google identity per app install. |
-| **D2** | **Keep Google Sign-In** | Retain Google account sign-in (email/profile scopes). **Remove** Google Fit / Fitness OAuth scopes. Rationale: Pikmin Bloom’s HC setup also involves sign-in; purpose is not fully understood yet — keep Sign-In for parity and future investigation. HC writes remain **device-scoped** and do not use the GF account binding. |
+| **D2** | **Keep Google Sign-In** | Retain Google account sign-in (email/profile scopes). **Remove** Google Fit / Fitness OAuth scopes. Rationale: the tested downstream app’s HC setup also involves sign-in; purpose is not fully understood yet — keep Sign-In for parity and future investigation. HC writes remain **device-scoped** and do not use the GF account binding. |
 | **D3** | **Target: 2026-09-04** | Deliver an HC-default build suitable for internal testing / Play internal upload and updated tester-facing copy. Not necessarily public production. |
 
 ### D1 — Single account: what goes away
@@ -59,7 +59,7 @@ These three decisions govern scope for the 9/4 milestone.
 - [ ] Single-account UX shipped (multi-account UI removed or hidden).
 - [ ] Privacy policy + internal tester invite updated for HC.
 - [ ] Play Console Health Connect data-type declaration submitted (or documented blocker).
-- [ ] Manual smoke: Sign-In → HC permissions → Run → steps visible in HC app → Pikmin reads steps.
+- [ ] Manual smoke: Sign-In → HC permissions → Run → steps visible in HC app → a third-party step-count app or game that supports Health Connect reads the steps.
 - [ ] Version bump + Play internal build uploaded (or sideload release if Play blocked).
 
 ---
@@ -93,7 +93,7 @@ These three decisions govern scope for the 9/4 milestone.
 | `SessionPreflight` | Skips GF permission check when HC writer active |
 | HC unit tests | `HealthConnectWriterTest` + `FakeHealthConnectClient` |
 | Debug run (HC) | Single enabled account; read-back log in debug run |
-| Pikmin validation | 5-minute debug run — steps correct |
+| Third-party app validation | 5-minute debug run — steps correct |
 | Test batch write | Fixed future-time window bug |
 
 ### Not done (required for 9/4)
@@ -158,7 +158,7 @@ These three decisions govern scope for the 9/4 milestone.
 
 - [V] Rewrite [APBFit_Privacy_Policy.md](APBFit_Privacy_Policy.md) and [docs/privacy/index.html](privacy/index.html) for HC.
 - [ ] Play Console: Health Connect data types + privacy policy link — see [notes/Play_Console_HC_declaration.md](notes/Play_Console_HC_declaration.md).
-- [V] Update [docs/notes/Internal_test_notes.txt](notes/Internal_test_notes.txt): remove GF prerequisite; add HC permission steps; validation via HC / Pikmin.
+- [V] Update [docs/notes/Internal_test_notes.txt](notes/Internal_test_notes.txt): remove GF prerequisite; add HC permission steps; validation via HC / a third-party step-count app or game.
 - [V] Bump `versionCode` / `versionName`; upload Play internal build.
 - [ ] Notify testers to reinstall (use updated `Internal_test_notes.txt`).
 
@@ -179,7 +179,7 @@ These three decisions govern scope for the 9/4 milestone.
 | **9/2** | Phase 1: HC default + env checks + Start Run + permission UX |
 | **9/2–9/3** | Phase 1: single-account simplification |
 | **9/3** | Phase 2: remove GF code/deps; Sign-In scope trim |
-| **9/3–9/4** | Phase 3: privacy, Play declaration, internal notes; device smoke + Pikmin check |
+| **9/3–9/4** | Phase 3: privacy, Play declaration, internal notes; device smoke + downstream app check |
 | **9/4** | Version bump, Play upload, tester notification |
 
 Buffer: if Play HC declaration review delays upload, ship **sideload `release` APK** to testers on 9/4 and upload Play when unblocked.
@@ -190,27 +190,27 @@ Buffer: if Play HC declaration review delays upload, ship **sideload `release` A
 
 | Risk | Mitigation |
 |---|---|
-| Pikmin Sign-In purpose unknown | Keep Google Sign-In (D2); document as open question; do not block 9/4 on resolving |
+| Downstream app Sign-In purpose unknown | Keep Google Sign-In (D2); document as open question; do not block 9/4 on resolving |
 | HC permission UX confusion | Copy in invite + in-app status messages; link to HC app permissions |
 | `canStartRun` still GF-gated until Phase 1 | Fix in first implementation PR |
 | Uncommitted WIP on feature branch | Commit before large refactors |
 | Play HC declaration turnaround | Start Play Console form early on 9/3; sideload fallback |
 | Single-account refactor touches many files | Dedicated PR; run existing unit tests + manual smoke |
 | No cross-device sync | Do not promise in UI; same limitation as GF |
-| Pikmin HC mode requires Android 14+ | Recruit Android 14+ for end-to-end; Android 12–13: validate APBFit→HC; optional GF bridge — see [compatibility matrix](notes/HC_compatibility_matrix.md) |
+| Tested downstream app's HC mode requires Android 14+ | Recruit Android 14+ for end-to-end validation; keep Android 12–13 bridge results as historical evidence — see [compatibility matrix](notes/HC_compatibility_matrix.md) |
 
 ### Device compatibility (owner validation, 2026-09-07)
 
-| Android | APBFit → HC | Pikmin via HC | Notes |
+| Android | APBFit → HC | Tested third-party app via HC | Notes |
 |---|---|---|---|
 | 15 | ✅ | ✅ | Direct path OK |
-| 12 (S10e) | ✅ | ❌ (Pikmin needs 14+) | GF bridge: 5 rounds OK; GF foreground + delay |
+| 12 (S10e) | ✅ | ❌ (tested app needs 14+) | Historical GF bridge: 5 rounds OK; GF foreground + delay |
 
 Full matrix and tester paths: [notes/HC_compatibility_matrix.md](notes/HC_compatibility_matrix.md).
 
 ### Open questions (non-blocking unless discovered otherwise)
 
-1. Does Pikmin require Google Sign-In to match HC data origin, or is it independent?
+1. Does the tested downstream app require Google Sign-In to match HC data origin, or is it independent?
 2. Should `FitWriter` drop `GoogleSignInAccount` parameter post-cutover, or keep for minimal diff?
 3. Is Play internal upload mandatory on 9/4, or is sideload to known testers acceptable?
 
@@ -220,7 +220,7 @@ Full matrix and tester paths: [notes/HC_compatibility_matrix.md](notes/HC_compat
 
 - [ ] Fresh install: Sign-In → HC permissions → Start Run completes.
 - [ ] Steps appear in Health Connect app (steps / distance / exercise as applicable).
-- [ ] Pikmin Bloom reads steps within expected sync delay.
+- [ ] A third-party step-count app or game that supports Health Connect reads steps within the expected sync delay.
 - [ ] Screen-off run continues writing (FGS regression).
 - [ ] Debug panel: test batch write succeeds (no future-time error).
 - [ ] Sign-out / sign-in with different Google account (single slot).
@@ -235,7 +235,7 @@ Full matrix and tester paths: [notes/HC_compatibility_matrix.md](notes/HC_compat
 | [APBFit_Health_Connect_Writer.md](APBFit_Health_Connect_Writer.md) | Technical HC writer implementation notes |
 | [APBFit_Agent_Progress.md](APBFit_Agent_Progress.md) | Historical dual-track brief (superseded for write path) |
 | [APBFit_applicationId_rename_plan.md](APBFit_applicationId_rename_plan.md) | OAuth SHA-1, Testing mode, Play signing |
-| [notes/HC_compatibility_matrix.md](notes/HC_compatibility_matrix.md) | Android / APBFit / Pikmin path matrix (owner-validated) |
+| [notes/HC_compatibility_matrix.md](notes/HC_compatibility_matrix.md) | Android / APBFit / third-party app path matrix (owner-validated) |
 | [notes/Internal_test_notes.txt](notes/Internal_test_notes.txt) | Tester invite (HC; Android 14+ recommended) |
 | [APBFit_Privacy_Policy.md](APBFit_Privacy_Policy.md) | Privacy policy (HC) |
 
