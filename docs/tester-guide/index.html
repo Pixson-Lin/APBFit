@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="APBFit Google Play 內部測試快速使用說明">
+  <title>APBFit 內部測試快速使用說明</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --background: #f7f8f7;
+      --surface: #ffffff;
+      --surface-muted: #edf5ed;
+      --text: #1b1f1b;
+      --muted: #586158;
+      --accent: #397a43;
+      --accent-strong: #225c2c;
+      --border: #d7ddd7;
+      --warning-background: #fff7e3;
+      --warning-border: #d99a24;
+      --warning-text: #5c420f;
+      --shadow: 0 8px 24px rgba(26, 54, 30, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      background: var(--background);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        "Noto Sans TC", sans-serif;
+      font-size: 17px;
+      line-height: 1.7;
+    }
+
+    a {
+      color: var(--accent-strong);
+      text-underline-offset: 0.18em;
+    }
+
+    header,
+    main,
+    footer {
+      width: min(100% - 2rem, 48rem);
+      margin-inline: auto;
+    }
+
+    header {
+      padding: 2.5rem 0 1.5rem;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.3;
+    }
+
+    h1 {
+      margin: 0 0 0.75rem;
+      font-size: clamp(2rem, 7vw, 3rem);
+      color: var(--accent-strong);
+    }
+
+    h2 {
+      margin: 0 0 1rem;
+      font-size: 1.5rem;
+    }
+
+    h3 {
+      margin-top: 1.5rem;
+      font-size: 1.08rem;
+    }
+
+    p,
+    ul,
+    ol {
+      margin-top: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    ul,
+    ol {
+      padding-left: 1.4rem;
+    }
+
+    li + li {
+      margin-top: 0.35rem;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .lead {
+      max-width: 42rem;
+      font-size: 1.08rem;
+    }
+
+    .card,
+    .step {
+      margin-bottom: 1.25rem;
+      padding: 1.4rem;
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .contents ol {
+      columns: 2;
+      column-gap: 2rem;
+    }
+
+    .contents li {
+      break-inside: avoid;
+      margin-bottom: 0.4rem;
+    }
+
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      margin-right: 0.45rem;
+      border-radius: 999px;
+      color: #ffffff;
+      background: var(--accent);
+      font-weight: 700;
+      font-size: 1rem;
+      vertical-align: 0.1em;
+    }
+
+    .callout {
+      margin: 1rem 0;
+      padding: 1rem 1.1rem;
+      border-left: 0.3rem solid var(--accent);
+      border-radius: 0.5rem;
+      background: var(--surface-muted);
+    }
+
+    .warning {
+      border-left-color: var(--warning-border);
+      color: var(--warning-text);
+      background: var(--warning-background);
+    }
+
+    .guide-figure {
+      margin: 1.25rem 0 0;
+      text-align: center;
+    }
+
+    .guide-figure img {
+      display: block;
+      width: auto;
+      max-width: min(100%, 24rem);
+      max-height: 44rem;
+      margin: 0 auto;
+      border: 1px solid var(--border);
+      border-radius: 0.8rem;
+      background: var(--surface-muted);
+      box-shadow: var(--shadow);
+    }
+
+    .guide-figure figcaption {
+      margin-top: 0.55rem;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .checklist {
+      padding-left: 0;
+      list-style: none;
+    }
+
+    .checklist li::before {
+      content: "✓";
+      margin-right: 0.55rem;
+      color: var(--accent);
+      font-weight: 800;
+    }
+
+    footer {
+      padding: 1rem 0 3rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 38rem) {
+      body {
+        font-size: 16px;
+      }
+
+      header {
+        padding-top: 1.75rem;
+      }
+
+      .card,
+      .step {
+        padding: 1.1rem;
+        border-radius: 0.8rem;
+      }
+
+      .contents ol {
+        columns: 1;
+      }
+
+      .guide-figure img {
+        max-height: none;
+      }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --background: #101310;
+        --surface: #191d19;
+        --surface-muted: #202a21;
+        --text: #edf2ed;
+        --muted: #b6c0b6;
+        --accent: #7fc987;
+        --accent-strong: #99dca0;
+        --border: #384138;
+        --warning-background: #332a14;
+        --warning-border: #e4ad43;
+        --warning-text: #f5daa4;
+        --shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="meta">Google Play 內部測試｜適用 Android 14 以上</p>
+    <h1>APBFit 快速使用說明</h1>
+    <p class="lead">
+      本說明將帶你完成測試資格確認、安裝、Google 登入、Health Connect
+      授權、第一次 Run 與測試回報。
+    </p>
+    <p class="meta">適用版本：v1.4.20260903｜最後更新：2026-09-09</p>
+  </header>
+
+  <main>
+    <section class="card" aria-labelledby="before-starting">
+      <h2 id="before-starting">開始前請準備</h2>
+      <ul class="checklist">
+        <li>申請測試時登記的 Gmail</li>
+        <li>Android 14 或以上手機</li>
+        <li>已安裝或系統內建的 Health Connect</li>
+        <li>約 10 分鐘測試時間</li>
+      </ul>
+      <div class="callout">
+        Google Play 測試連結與完成回報連結只會放在電子郵件通知
+        中，請保留該封信。
+      </div>
+    </section>
+
+    <nav class="card contents" aria-labelledby="contents">
+      <h2 id="contents">操作步驟</h2>
+      <ol>
+        <li><a href="#step-1">確認測試資格</a></li>
+        <li><a href="#step-2">安裝或更新</a></li>
+        <li><a href="#step-3">Google 帳號登入</a></li>
+        <li><a href="#step-4">Health Connect 授權</a></li>
+        <li><a href="#step-5">確認環境狀態</a></li>
+        <li><a href="#step-6">開始第一次 Run</a></li>
+        <li><a href="#step-7">確認 Run 完成</a></li>
+        <li><a href="#step-8">確認 HC 紀錄</a></li>
+        <li><a href="#step-9">檢查第三方應用</a></li>
+        <li><a href="#step-10">提交測試回報</a></li>
+      </ol>
+    </nav>
+
+    <section class="step" id="step-1">
+      <h2><span class="step-number">1</span>確認 Google Play 測試資格</h2>
+      <p>在 Android 手機上開啟電子郵件通知，點選其中的內部測試連結。</p>
+      <p>
+        確認頁面登入的是申請時登記的 Gmail，然後點選「成為測試人員」。
+        成功後，頁面會顯示你已加入測試，並提供前往 Google Play 下載的連結。
+      </p>
+      <figure class="guide-figure">
+        <img src="pics/pic-01-1.png" alt="Google Play 內部測試邀請頁面，顯示接受邀請按鈕">
+        <figcaption>在 Google Play 內部測試頁面接受邀請。</figcaption>
+      </figure>
+      <figure class="guide-figure">
+        <img src="pics/pic-01-2.jpg" alt="Google Play 頁面顯示已成為 APBFit 測試人員">
+        <figcaption>頁面顯示已加入測試，並提供測試版下載按鈕。</figcaption>
+      </figure>
+      <div class="callout warning">
+        如果頁面顯示其他 Gmail，請先切換帳號，再重新開啟電子郵件通知
+        中的測試連結。
+      </div>
+    </section>
+
+    <section class="step" id="step-2">
+      <h2><span class="step-number">2</span>安裝或更新 APBFit</h2>
+      <p>從測試頁面前往 Google Play，點選「安裝」或「更新」。</p>
+      <p>
+        APBFit 不會出現在一般商店搜尋結果中，請從電子郵件通知
+        的內部測試連結進入。
+      </p>
+      <figure class="guide-figure">
+        <img src="pics/pic-02.jpg" alt="Google Play 的 APBFit 測試版安裝畫面" loading="lazy" decoding="async">
+        <figcaption>從 Google Play 安裝 APBFit 測試版。</figcaption>
+      </figure>
+      <h3>看不到安裝按鈕？</h3>
+      <ol>
+        <li>確認 Play 商店使用的是申請時登記的 Gmail。</li>
+        <li>等待 5～10 分鐘。</li>
+        <li>重新開啟電子郵件通知中的測試連結。</li>
+      </ol>
+    </section>
+
+    <section class="step" id="step-3">
+      <h2><span class="step-number">3</span>使用 Google 帳號登入</h2>
+      <p>開啟 APBFit，選擇申請測試時登記的 Gmail。</p>
+      <figure class="guide-figure">
+        <img src="pics/pic-03.jpg" alt="APBFit 登入畫面，顯示使用 Google 登入按鈕" loading="lazy" decoding="async">
+        <figcaption>點選「使用 Google 登入」，並選擇登記的 Gmail。</figcaption>
+      </figure>
+      <p>
+        成功登入後，APBFit 首頁會顯示目前登入的 Gmail。這也代表 OAuth
+        測試資格運作正常；Google 不會另外提供 OAuth 測試名單查詢頁面。
+      </p>
+      <div class="callout warning">
+        若出現「拒絕存取」、「應用程式尚未通過驗證」或登入後返回原畫面，
+        請截圖並聯絡開發者。
+      </div>
+    </section>
+
+    <section class="step" id="step-4">
+      <h2><span class="step-number">4</span>授權 Health Connect</h2>
+      <p>首次使用時，APBFit 會要求 Health Connect 權限，請允許：</p>
+      <p>(有的手機不會自動跳出權限提示，這時請直接跳至步驟5手動開啟即可)</p>
+      <ul>
+        <li>步數讀取與寫入</li>
+        <li>距離寫入</li>
+        <li>運動紀錄寫入</li>
+      </ul>
+      <figure class="guide-figure">
+        <img src="pics/pic-04-1.jpg" alt="APBFit 首頁顯示 Health Connect 等環境狀態尚未完成" loading="lazy" decoding="async">
+        <figcaption>首次登入時，尚未完成的環境狀態會顯示為橘色。</figcaption>
+      </figure>
+      <figure class="guide-figure">
+        <img src="pics/pic-04-2.jpg" alt="Health Connect 要求允許 APBFit 讀取與寫入活動和步數資料" loading="lazy" decoding="async">
+        <figcaption>在 Health Connect 權限頁面允許測試所需的資料類型。</figcaption>
+      </figure>
+      <p class="meta">
+        APBFit 只會依你開始的 Run 寫入模擬紀錄，不會將 Health Connect
+        資料傳送給開發者。
+      </p>
+    </section>
+
+    <section class="step" id="step-5">
+      <h2><span class="step-number">5</span>確認環境狀態</h2>
+      <p>
+        回到 APBFit 首頁後，確認畫面下方的 Health Connect
+        狀態為綠色。同時也請確認電池、通知及鬧鐘皆為綠色。
+      </p>
+      <figure class="guide-figure">
+        <img src="pics/pic-05.jpg" alt="APBFit 詢問是否停止最佳化電池用量" loading="lazy" decoding="async">
+        <figcaption>點選橘色狀態圖示後，依系統提示完成必要設定。</figcaption>
+      </figure>
+      <p>
+        若任一個按鈕顯示橘色，請點選該圖示並依畫面提示完成設定。
+      </p>
+    </section>
+
+    <section class="step" id="step-6">
+      <h2><span class="step-number">6</span>設定並開始第一次 Run</h2>
+      <p>開始前請確認權限已授權，並且四個環境狀態燈為綠色。</p>
+      <p>第一次測試建議使用簡短設定：</p>
+      <ul>
+        <li>時長：5 分鐘</li>
+        <li>強度：任一預設強度</li>
+        <li>批次量：維持預設值</li>
+      </ul>
+      <p>確認設定後，點選畫面上方的「RUN」。</p>
+      <figure class="guide-figure">
+        <img src="pics/pic-06-1.jpg" alt="APBFit 首頁顯示五分鐘 Run 設定與綠色環境狀態" loading="lazy" decoding="async">
+        <figcaption>設定 5 分鐘 Run，並確認四個環境狀態皆為綠色。</figcaption>
+      </figure>
+      <p>
+        Run 開始後會顯示目前狀態、已進行時間、剩餘時間、已寫入步數與寫入進度。
+      </p>
+      <figure class="guide-figure">
+        <img src="pics/pic-06-2.jpg" alt="APBFit Run 進行中，顯示時間、步數與寫入進度" loading="lazy" decoding="async">
+        <figcaption>Run 進行中會持續顯示時間、步數與寫入進度。</figcaption>
+      </figure>
+      <div class="callout">
+        測試期間可將 APBFit 切到背景或短暫關閉螢幕，但請不要強制停止應用程式。
+      </div>
+    </section>
+
+    <section class="step" id="step-7">
+      <h2><span class="step-number">7</span>確認 Run 完成</h2>
+      <p>Run 完成後，開啟「歷史紀錄」，確認最新紀錄：</p>
+      <ul>
+        <li>狀態為「已完成」</li>
+        <li>已寫入步數大於 0</li>
+      </ul>
+      <figure class="guide-figure">
+        <img src="pics/pic-07.jpg" alt="APBFit 歷史紀錄顯示五分鐘 Run 已完成並寫入步數" loading="lazy" decoding="async">
+        <figcaption>歷史紀錄顯示 Run 已完成且寫入步數大於 0。</figcaption>
+      </figure>
+    </section>
+
+    <section class="step" id="step-8">
+      <h2><span class="step-number">8</span>確認 Health Connect 紀錄</h2>
+      <p>
+        從 APBFit 的「設定」頁面點選「Health Connect」以開啟 Health Connect，
+        然後點選「資料和存取權」-> 「步數」。
+      </p>
+      <p>
+        確認 Health Connect 中可以看到 APBFit 寫入的步數、距離或運動紀錄。
+        不同手機品牌或 Android 版本的 Health Connect 畫面可能略有不同。
+      </p>
+      <figure class="guide-figure">
+        <img src="pics/pic-08.jpg" alt="Health Connect 步數資料頁面顯示 APBFit 寫入的紀錄" loading="lazy" decoding="async">
+        <figcaption>Health Connect 的步數資料頁面會列出 APBFit 寫入的紀錄。</figcaption>
+      </figure>
+      <p class="meta">
+        不需要將實際數值或 Health Connect 畫面提交給開發者，只需在完成回報表單
+        勾選是否成功。
+      </p>
+    </section>
+
+    <section class="step" id="step-9">
+      <h2><span class="step-number">9</span>選擇性檢查第三方應用</h2>
+      <p>若你有使用支援 Health Connect 的第三方步數應用或遊戲：</p>
+      <ol>
+        <li>確認該應用已設定為從 Health Connect 讀取步數。</li>
+        <li>等待該應用正常同步。</li>
+        <li>確認是否能讀到本次 Run 的步數。</li>
+      </ol>
+      <figure class="guide-figure">
+        <img src="pics/pic-09-1.jpg" alt="支援 Health Connect 的第三方步數應用首頁顯示步數" loading="lazy" decoding="async">
+        <figcaption>第三方步數應用讀取 Health Connect 後顯示步數。</figcaption>
+      </figure>
+      <figure class="guide-figure">
+        <img src="pics/pic-09-2.jpg" alt="第三方步數應用的每日步數詳細畫面" loading="lazy" decoding="async">
+        <figcaption>可進一步開啟每日步數明細確認同步結果。</figcaption>
+      </figure>
+      <div class="callout">
+        第三方應用的同步時間與讀取規則可能不同；測試結果不代表官方整合或持續
+        相容性保證。
+      </div>
+    </section>
+
+    <section class="step" id="step-10">
+      <h2><span class="step-number">10</span>提交完成回報</h2>
+      <p>
+        完成測試後，請使用電子郵件通知中的完成回報連結，回報：
+      </p>
+      <ul>
+        <li>安裝及登入是否成功</li>
+        <li>Health Connect 授權是否成功</li>
+        <li>是否完成至少一次 Run</li>
+        <li>Health Connect 是否看到紀錄</li>
+        <li>第三方應用是否讀到步數</li>
+        <li>遇到的錯誤或異常</li>
+      </ul>
+      <div class="callout warning">
+        請勿提交密碼、健康數值或未遮蔽個人資料的截圖。
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="support">
+      <h2 id="support">需要協助？</h2>
+      <p>
+        請直接回覆電子郵件通知，或寄信至
+        <a href="mailto:pixson.srv@gmail.com">pixson.srv@gmail.com</a>。
+      </p>
+      <p>
+        若要提供錯誤截圖，請先遮蔽 Gmail、通知及其他個人資料。
+      </p>
+      <p><a href="../privacy/">查看 APBFit 隱私權政策</a></p>
+    </section>
+  </main>
+
+  <footer>
+    <p>APBFit internal testing guide · This page contains no tester-specific links.</p>
+  </footer>
+</body>
+</html>
