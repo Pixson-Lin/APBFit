@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT="/agent/repos/APBFit"
-if [ ! -f "$REPO_ROOT/settings.gradle.kts" ]; then
-  REPO_ROOT="/workspace"
-fi
-cd "$REPO_ROOT"
+cd /agent/repos/APBFit
 
 export ANDROID_HOME="${ANDROID_HOME:-/opt/android-sdk}"
 export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
