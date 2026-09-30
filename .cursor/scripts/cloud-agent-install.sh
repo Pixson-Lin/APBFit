@@ -14,4 +14,4 @@ if [ ! -x gradlew ]; then
   chmod +x gradlew
 fi
 
-./gradlew --no-daemon dependencies
+./gradlew --no-daemon :app:dependencies
